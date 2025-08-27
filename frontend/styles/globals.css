@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: 'Montserrat', sans-serif;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure all form elements use Montserrat */
+input, textarea, select, button {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure all headings use Montserrat */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure all paragraphs and text elements use Montserrat */
+p, span, div, label {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure all list elements use Montserrat */
+ul, ol, li {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure all table elements use Montserrat */
+table, th, td, caption {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure any third-party components use Montserrat */
+[class*="chakra-"], [class*="css-"] {
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+/* Ensure any dynamically generated content uses Montserrat */
+*::before, *::after {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure any iframe content uses Montserrat (if possible) */
+iframe {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure any SVG text elements use Montserrat */
+svg text {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Ensure any canvas text uses Montserrat */
+canvas {
+  font-family: 'Montserrat', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
