@@ -7,3 +7,8 @@ python-dotenv
 crewai
 litellm
 pydantic
+geopy
+openai
+google-generativeai
+foursquare
+python-multipart
