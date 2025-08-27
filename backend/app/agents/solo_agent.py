@@ -11,6 +11,7 @@ from .tools.location_resolver import create_location_resolver_tool
 from .tools.extractor_tool import create_intent_extractor_tool
 from .tools.context_analyzer_tool import create_context_analyzer_tool
 from crewai.llm import LLM
+from ..core.config import settings
 
 
 class SoloModeAgent:
@@ -36,7 +37,7 @@ class SoloModeAgent:
         
     def setup_agents(self):
         """Setup CrewAI agents with specific roles"""
-        llm = LLM(model="gemini/gemini-2.5-flash", api_key=os.getenv("GEMINI_API_KEY"))
+        llm = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
         # Intent Analysis Agent
         self.intent_agent = Agent(
             role="Intent Analysis Specialist",
