@@ -27,6 +27,7 @@ import {
 } from '@chakra-ui/react';
 import { ChatIcon, HamburgerIcon, AddIcon, ArrowForwardIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useSelector } from 'react-redux';
+import { useRouter } from 'next/router';
 import { 
   collection, 
   addDoc, 
@@ -46,6 +47,8 @@ import { SendIcon } from '@chakra-ui/icons';
 
 const TalkToCoordinate = () => {
   const { user } = useSelector((state) => state.userReducer);
+  const { place } = useSelector((state) => state.placeReducer);
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
@@ -61,6 +64,21 @@ const TalkToCoordinate = () => {
       createNewConversation();
     }
   }, [user?.uid, currentConversationId]);
+
+  // Handle query parameter and automatically send message
+  useEffect(() => {
+    if (router.query.message && user?.uid && currentConversationId) {
+      const message = router.query.message;
+      setQuery(message);
+      
+      // Create a synthetic event for handleSubmit
+      const syntheticEvent = { preventDefault: () => {} };
+      handleSubmit(syntheticEvent, message);
+      
+      // Clear the query parameter
+      router.replace('/talk-to-coordinate', undefined, { shallow: true });
+    }
+  }, [router.query.message, user?.uid, currentConversationId]);
 
   // Fetch user's conversations from Firebase
   useEffect(() => {
@@ -264,9 +282,10 @@ const TalkToCoordinate = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, messageContent = null) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    const messageToSend = messageContent || query;
+    if (!messageToSend.trim()) return;
 
     // Ensure conversation exists
     if (!currentConversationId) {
@@ -276,13 +295,13 @@ const TalkToCoordinate = () => {
 
     // Set conversation title if this is the first message
     if (chatHistory.length === 0) {
-      const title = generateConversationTitle(query);
+      const title = generateConversationTitle(messageToSend);
       setConversationTitle(title);
     }
 
     const userMessage = { 
       type: 'user', 
-      content: query, 
+      content: messageToSend, 
       timestamp: new Date(),
       conversationId: currentConversationId,
       userId: user.uid
@@ -307,7 +326,7 @@ const TalkToCoordinate = () => {
     
     try {
       // Get AI response from backend
-      const aiResponse = await generateAIResponse(query);
+      const aiResponse = await generateAIResponse(messageToSend);
       
       const aiMessage = { 
         type: 'ai', 
@@ -329,7 +348,7 @@ const TalkToCoordinate = () => {
       await updateDoc(doc(db, 'conversations', currentConversationId), {
         lastMessageTime: serverTimestamp(),
         messageCount: newMessageCount,
-        title: conversationTitle || generateConversationTitle(query)
+        title: conversationTitle || generateConversationTitle(messageToSend)
       });
       
       // Add AI message to local state for immediate display
@@ -374,7 +393,7 @@ const TalkToCoordinate = () => {
         },
         body: JSON.stringify({
           query: userQuery,
-          user_location: "12.9716,77.5946" // Default location
+          user_location: place || "12.9716,77.5946" // Use place from Redux or default
         })
       });
 
@@ -511,8 +530,11 @@ const TalkToCoordinate = () => {
   const renderMarkdownText = (text) => {
     if (!text) return null;
     
+    // First, completely remove ALL asterisks from the entire text
+    const cleanText = text.replace(/\*/g, '');
+    
     // Split text into lines and process each line
-    const lines = text.split('\n');
+    const lines = cleanText.split('\n');
     
     return lines.map((line, lineIndex) => {
       // Skip empty lines
@@ -543,28 +565,30 @@ const TalkToCoordinate = () => {
         return <Divider key={lineIndex} my={3} />;
       }
       
-      // Handle lines with **text** (bold sections) - make them purple and remove asterisks
-      if (line.includes('**')) {
-        // Split by ** and render each part
-        const parts = line.split(/(\*\*.*?\*\*)/g);
+      // Clean line: format properly
+      let cleanLine = line
+        .replace(/^\s*-\s*/, '• ') // Replace dashes with bullet points
+        .replace(/^\s*•\s*/, '• '); // Ensure proper bullet point format
+      
+      // If line starts with "Rank X:" make it bold and purple
+      if (cleanLine.match(/^Rank \d+:/)) {
         return (
-          <Text key={lineIndex} fontSize="sm" color="gray.700" mb={2}>
-            {parts.map((part, partIndex) => {
-              if (part.startsWith('**') && part.endsWith('**')) {
-                return (
-                  <Text as="span" key={partIndex} fontWeight="bold" color="purple.600">
-                    {part.slice(2, -2)}
-                  </Text>
-                );
-              }
-              return part;
-            })}
+          <Text key={lineIndex} fontSize="md" fontWeight="bold" color="purple.600" mt={3} mb={2}>
+            {cleanLine}
           </Text>
         );
       }
       
-      // Handle all lines - remove ALL asterisks and bullet points completely
-      const cleanLine = line.replace(/^\*\s*/, '').replace(/\*/g, '');
+      // If line starts with a bullet point, format it properly
+      if (cleanLine.startsWith('• ')) {
+        return (
+          <Text key={lineIndex} fontSize="sm" color="gray.700" mb={1} ml={4}>
+            {cleanLine}
+          </Text>
+        );
+      }
+      
+      // Regular text
       return (
         <Text key={lineIndex} fontSize="sm" color="gray.600" mb={1}>
           {cleanLine}
@@ -616,7 +640,7 @@ const TalkToCoordinate = () => {
     <Flex
       key={index}
       justify={message.type === 'user' ? 'flex-end' : 'flex-start'}
-      mb={4}
+      mb={6}
       w="100%"
     >
       <Box
@@ -629,18 +653,18 @@ const TalkToCoordinate = () => {
           borderColor={message.type === 'user' ? 'purple.200' : 'gray.200'}
           shadow="md"
         >
-          <CardBody>
-            <HStack spacing={3} mb={2}>
-              <Avatar
-                size="sm"
-                name={message.type === 'user' ? 'You' : 'Coordinate AI'}
-                src={message.type === 'user' ? user?.photoURL : undefined}
-                bg={message.type === 'ai' ? 'purple.500' : undefined}
-              />
-              <Text fontSize="sm" color="gray.500">
-                {message.timestamp.toLocaleTimeString()}
-              </Text>
-            </HStack>
+                  <CardBody p={6}>
+          <HStack spacing={3} mb={3}>
+            <Avatar
+              size="sm"
+              name={message.type === 'user' ? 'You' : 'Coordinate AI'}
+              src={message.type === 'user' ? user?.photoURL : undefined}
+              bg={message.type === 'ai' ? 'purple.500' : undefined}
+            />
+            <Text fontSize="sm" color="gray.500">
+              {message.timestamp.toLocaleTimeString()}
+            </Text>
+          </HStack>
             
             {message.type === 'user' ? (
               <Text>{message.content}</Text>
@@ -790,7 +814,7 @@ const TalkToCoordinate = () => {
   }
 
   return (
-    <Box h="100vh" bg="gray.50">
+    <Box h="100%" bg="gray.50" overflow="hidden">
       {/* Conversations Sidebar */}
       <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="md">
         <DrawerOverlay />
@@ -861,7 +885,7 @@ const TalkToCoordinate = () => {
       </Drawer>
 
       {/* Sidebar Toggle Button */}
-      <Box position="fixed" top={2} left={4} zIndex={1000}>
+      <Box position="fixed" top={6} left={4} zIndex={1000}>
         <IconButton
           icon={<HamburgerIcon />}
           onClick={onOpen}
@@ -873,7 +897,7 @@ const TalkToCoordinate = () => {
       </Box>
 
       {/* Main Chat Area - Full Width */}
-      <Box w="100%" h="100vh" display="flex" flexDirection="column">
+      <Box w="100%" h="100%" display="flex" flexDirection="column" overflow="hidden">
         {/* Chat Header - Shows when conversation has started */}
         {chatHistory.length > 0 && conversationTitle && (
           <Box 
@@ -887,6 +911,9 @@ const TalkToCoordinate = () => {
             zIndex={10}
           >
             <Flex justify="space-between" align="center" maxW="1200px" mx="auto">
+              <Text fontSize="md" fontWeight="bold" color="purple.600">
+                {conversationTitle}
+              </Text>
               <HStack spacing={2}>
                 <Button
                   size="sm"
@@ -906,65 +933,67 @@ const TalkToCoordinate = () => {
                   New Chat
                 </Button>
               </HStack>
-              <Text fontSize="md" fontWeight="bold" color="purple.600">
-                {conversationTitle}
-              </Text>
             </Flex>
           </Box>
         )}
 
-        {/* Welcome Message */}
-        {chatHistory.length === 0 && (
-          <Box textAlign="center" py={20} flex="1" display="flex" alignItems="center" justifyContent="center">
-            <VStack spacing={6} maxW="800px" mx="auto">
-              <ChatIcon size="80px" color="purple.500" />
-              <Text fontSize="2xl" fontWeight="bold" color="purple.600">
-                Hello! I'm Coordinate AI
-              </Text>
-              <Text fontSize="lg" color="gray.600" maxW="600px" textAlign="center">
-                Ask me anything about places, activities, or get personalized recommendations. 
-                I can help you find the perfect spots for food, study, work, entertainment, and more!
-              </Text>
-              <VStack spacing={3} mt={6}>
-                <Text fontSize="sm" color="gray.500" fontWeight="semibold">
-                  Try asking me:
+        {/* Chat History - Full Width */}
+        <Box flex="1" overflowY="auto" p={8} pb={24} w="100%">
+          {/* Welcome Message - Only when no chat history */}
+          {chatHistory.length === 0 && (
+            <Box textAlign="center" py={8} display="flex" alignItems="center" justifyContent="center" minH="60vh">
+              <VStack spacing={4} maxW="800px" mx="auto">
+                <Text fontSize="4xl" fontWeight="bold" color="purple.600" fontFamily="Montserrat, sans-serif">
+                  Hello! I'm Coordinate AI
                 </Text>
-                <HStack spacing={3} flexWrap="wrap" justify="center">
-                  <Button 
-                    size="sm" 
+                <Text fontSize="lg" color="gray.600" maxW="600px" textAlign="center" fontFamily="Montserrat, sans-serif">
+                  Ask me anything about places, activities, or get personalized recommendations. 
+                  I can help you find the perfect spots for food, study, work, entertainment, and more!
+                </Text>
+                <VStack spacing={2} mt={4}>
+                  <Text fontSize="md" color="gray.500" fontWeight="semibold" fontFamily="Montserrat, sans-serif">
+                    Try asking me:
+                  </Text>
+                  <HStack spacing={2} flexWrap="wrap" justify="center">
+                                      <Button 
+                    size="md" 
                     variant="outline" 
                     colorScheme="purple"
+                    fontSize="md"
+                    fontFamily="Montserrat, sans-serif"
                     onClick={() => handleExampleClick("Find coffee shops near me")}
                     disabled={isLoading}
                   >
                     "Find coffee shops near me"
                   </Button>
                   <Button 
-                    size="sm" 
+                    size="md" 
                     variant="outline" 
                     colorScheme="purple"
+                    fontSize="md"
+                    fontFamily="Montserrat, sans-serif"
                     onClick={() => handleExampleClick("Best restaurants for date night")}
                     disabled={isLoading}
                   >
                     "Best restaurants for date night"
                   </Button>
                   <Button 
-                    size="sm" 
+                    size="md" 
                     variant="outline" 
                     colorScheme="purple"
+                    fontSize="md"
+                    fontFamily="Montserrat, sans-serif"
                     onClick={() => handleExampleClick("Quiet places to study with WiFi")}
                     disabled={isLoading}
                   >
                     "Quiet places to study with WiFi"
                   </Button>
-                </HStack>
+                  </HStack>
+                </VStack>
               </VStack>
-            </VStack>
-          </Box>
-        )}
+            </Box>
+          )}
 
-        {/* Chat History - Full Width */}
-        <Box flex="1" overflowY="auto" p={6} pt={chatHistory.length > 0 ? 4 : 20} w="100%">
           {chatHistory.map((message, index) => renderChatMessage(message, index))}
           
           {/* Loading Indicator */}
@@ -980,8 +1009,18 @@ const TalkToCoordinate = () => {
           )}
         </Box>
 
-        {/* Input Form - Full Width */}
-        <Box p={6} borderTop="1px solid" borderColor="gray.200" bg="white" w="100%">
+        {/* Input Form - Fixed at Bottom */}
+        <Box 
+          position="fixed" 
+          bottom={0} 
+          left={0} 
+          right={0} 
+          p={6} 
+          borderTop="1px solid" 
+          borderColor="gray.200" 
+          bg="white" 
+          zIndex={100}
+        >
           <form onSubmit={handleSubmit}>
             <HStack spacing={3} maxW="1200px" mx="auto">
               <Input
@@ -993,6 +1032,8 @@ const TalkToCoordinate = () => {
                 borderRadius="full"
                 border="2px solid"
                 borderColor="purple.200"
+                fontFamily="Montserrat, sans-serif"
+                fontSize="lg"
                 _focus={{ borderColor: 'purple.500', boxShadow: '0 0 0 1px var(--chakra-colors-purple-500)' }}
                 flex="1"
               />

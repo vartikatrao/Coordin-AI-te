@@ -37,6 +37,7 @@ const Options = () => {
       h={"auto"}
       m={"auto"}
       mt={"50px"}
+      mb={"80px"}
       justifyContent={"space-between"}
       alignItems={"flex-start"}
       flexWrap={"wrap"}

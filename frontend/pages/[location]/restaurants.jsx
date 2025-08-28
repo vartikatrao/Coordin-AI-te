@@ -2,7 +2,7 @@ import Products from "@/components/Delivery/Products";
 import Sections from "@/components/Delivery/Sections";
 import DineOutTab from "@/components/Dine-out/cards/DineOutTab";
 import Collections from "@/components/Home/Collections";
-import DeleveryNavbar from "@/components/Navbar/DeleveryNavbar";
+import UnifiedNavbar from "@/components/Navbar/UnifiedNavbar";
 import { getNightLifeReq } from "@/redux/actions/PlacesAction";
 import { Box, Breadcrumb, BreadcrumbItem, Flex } from "@chakra-ui/react";
 import Link from "next/link";
@@ -20,7 +20,7 @@ const Restaurants = () => {
   }, [dispatch, place]);
   return (
     <Box>
-      <DeleveryNavbar />
+      <UnifiedNavbar showModeNavigation={true} />
       <Flex
         w={{
           base: "90%",
