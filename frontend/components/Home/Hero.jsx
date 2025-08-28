@@ -25,6 +25,7 @@ import {
 import { useRouter } from "next/router";
 import {
   getPlace,
+  setCoordinates,
   getSuggestionSuccess,
   startLocationLoading,
 } from "@/redux/slices/PlacesSlice";
@@ -65,11 +66,39 @@ const Hero = () => {
   };
 
   const handleChange = (text, dispatch) => {
-    const timeout = setTimeout(() => {
-      if (text.length > 0) {
-        getLocationDetails(text, dispatch);
+    const timeout = setTimeout(async () => {
+      if (text.length > 2) { // Only search if user has typed at least 3 characters
+        try {
+          // Use Nominatim API for worldwide location search
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=10&addressdetails=1&countrycodes=in,us,gb,ca,au,de,fr,nl,se,no,dk,fi,ch,at,it,es,pt,ie,be,lux`
+          );
+          
+          if (!response.ok) {
+            throw new Error('Location search failed');
+          }
+          
+          const data = await response.json();
+          
+          // Transform the data to match our expected format
+          const locations = data.map((item, index) => ({
+            entity_id: index + 1,
+            name: item.display_name.split(',')[0], // Use the first part of the address
+            country_name: item.address?.country || 'Unknown',
+            full_address: item.display_name,
+            lat: item.lat,
+            lon: item.lon
+          }));
+          
+          dispatch(getSuggestionSuccess(locations));
+        } catch (error) {
+          console.error('Error searching locations:', error);
+          dispatch(getSuggestionSuccess([]));
+        }
+      } else if (text.length === 0) {
+        dispatch(getSuggestionSuccess([]));
       }
-    }, 600);
+    }, 500);
     return timeout;
   };
 
@@ -256,8 +285,20 @@ const Hero = () => {
                       key={s.entity_id}
                       onClick={() => {
                         dispatch(getPlace(s.name));
+                        dispatch(setCoordinates({ lat: s.lat, lon: s.lon }));
                         dispatch(getSuggestionSuccess([]));
-                        CreateQuery(s.name);
+                        // Store coordinates in URL query for future use
+                        if (s.lat && s.lon) {
+                          router.push({ 
+                            query: { 
+                              l: s.name,
+                              lat: s.lat,
+                              lon: s.lon
+                            } 
+                          });
+                        } else {
+                          CreateQuery(s.name);
+                        }
                       }}
                     >
                       {s.name + ", " + s.country_name}

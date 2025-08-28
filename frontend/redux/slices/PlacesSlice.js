@@ -6,6 +6,7 @@ const placesSlice = createSlice({
         locationLoad: false,
         load: false,
         place: "",
+        coordinates: null,
         suggestions: [],
         restraunts: [],
         restrauntDetails: {},
@@ -27,6 +28,9 @@ const placesSlice = createSlice({
         getPlace: (state, action) => {
             state.place = action.payload
             state.locationLoad = false
+        },
+        setCoordinates: (state, action) => {
+            state.coordinates = action.payload
         },
         getRestrauntSuccess: (state, action) => {
             state.restraunts = action.payload
@@ -64,5 +68,5 @@ const placesSlice = createSlice({
     }
 })
 
-export const { getSearchSuccess, getMealsSuccess, getPlace, getRestrauntSuccess, getSuggestionSuccess, getRestruntDetails, activateFilter, getDineOutSuccess, getCollectionSuccess, startLoading, removeFilter, startLocationLoading } = placesSlice.actions
+export const { getSearchSuccess, getMealsSuccess, getPlace, setCoordinates, getRestrauntSuccess, getSuggestionSuccess, getRestruntDetails, activateFilter, getDineOutSuccess, getCollectionSuccess, startLoading, removeFilter, startLocationLoading } = placesSlice.actions
 export default placesSlice.reducer
