@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 const OptionCards = ({ imgURL, title, subTitle, path }) => {
   const router = useRouter();
   const { place } = useSelector((state) => state.placeReducer);
+  const { user } = useSelector((state) => state.userReducer);
   const toast = useToast();
   return (
     <Box
@@ -28,16 +29,37 @@ const OptionCards = ({ imgURL, title, subTitle, path }) => {
       display={"flex"}
       flexDirection={"column"}
       onClick={() => {
-        // Group Mode doesn't require a place selection
+        // Check if user is logged in first
+        if (!user || !user.uid) {
+          toast.closeAll();
+          toast({
+            title: "Please sign in to continue",
+            description: "You need to be signed in to access this feature",
+            status: "warning",
+            position: "top",
+            duration: 4000,
+            isClosable: true,
+          });
+          // Scroll to the top of the page
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        
+        // Then check for location (Group Mode doesn't require a place selection)
         if (title === "Group Mode" || place) {
           router.push(path);
         } else {
           toast.closeAll();
           toast({
             title: "Please select a location to proceed",
+            description: "Select a location to access location-based features",
             status: "warning",
             position: "top",
+            duration: 4000,
+            isClosable: true,
           });
+          // Scroll to the top of the page
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       }}
     >

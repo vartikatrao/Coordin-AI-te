@@ -47,7 +47,7 @@ import { SendIcon } from '@chakra-ui/icons';
 
 const TalkToCoordinate = () => {
   const { user } = useSelector((state) => state.userReducer);
-  const { place } = useSelector((state) => state.placeReducer);
+  const { place, coordinates } = useSelector((state) => state.placeReducer);
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -393,7 +393,7 @@ const TalkToCoordinate = () => {
         },
         body: JSON.stringify({
           query: userQuery,
-          user_location: place || "12.9716,77.5946" // Use place from Redux or default
+          user_location: coordinates ? `${coordinates.lat},${coordinates.lon}` : (place || "12.9716,77.5946") // Use coordinates when available, otherwise place name or default
         })
       });
 

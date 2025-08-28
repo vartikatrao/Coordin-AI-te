@@ -81,23 +81,25 @@ const Navbar = () => {
             flex={1}
           >
 
+            {/* Always show Services button */}
+            <Button
+              variant="ghost"
+              color="black"
+              fontWeight="bold"
+              fontSize="md"
+              _hover={{ bgColor: "gray.100" }}
+              fontFamily="Montserrat, sans-serif"
+              onClick={() => {
+                document.querySelector('.options-section')?.scrollIntoView({ 
+                  behavior: 'smooth' 
+                });
+              }}
+            >
+              Services
+            </Button>
+
             {!user ? (
               <>
-                <Button
-                  variant="ghost"
-                  color="black"
-                  fontWeight="bold"
-                  fontSize="md"
-                  _hover={{ bgColor: "gray.100" }}
-                  fontFamily="Montserrat, sans-serif"
-                  onClick={() => {
-                    document.querySelector('.options-section')?.scrollIntoView({ 
-                      behavior: 'smooth' 
-                    });
-                  }}
-                >
-                  Services
-                </Button>
                 <LoginModal />
                 <SignupModal />
               </>

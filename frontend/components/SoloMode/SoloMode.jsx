@@ -18,6 +18,7 @@ import { useSelector } from 'react-redux';
 
 const SoloMode = () => {
   const { user } = useSelector((state) => state.userReducer);
+  const { place, coordinates } = useSelector((state) => state.placeReducer);
   const [selectedPreferences, setSelectedPreferences] = useState({
     purpose: '',
     mood: '',
@@ -60,7 +61,7 @@ const SoloMode = () => {
         },
         body: JSON.stringify({
           query: `Find ${selectedPreferences.purpose} places for ${selectedPreferences.mood || 'any'} mood, budget: ${selectedPreferences.budget || 'any'}, time: ${selectedPreferences.time || 'any time'}, transport: ${selectedPreferences.transport || 'any'}, near ${selectedPreferences.location || 'my current location'}`,
-          user_location: "12.9716,77.5946" // Default location, you can make this dynamic
+          user_location: coordinates ? `${coordinates.lat},${coordinates.lon}` : (place || "12.9716,77.5946") // Use coordinates when available, otherwise place name or default
         })
       });
 
