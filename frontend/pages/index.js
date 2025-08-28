@@ -33,8 +33,6 @@ export default function Home() {
       <Box className="options-section">
         <Options />
       </Box>
-      <Collections />
-      <Localities />
       <Explore />
     </>
   )

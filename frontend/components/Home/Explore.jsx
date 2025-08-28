@@ -65,72 +65,8 @@ const Explore = () => {
       ],
     },
   ];
-  return (
-    <Box w={{ base: "100%", lg: "70%" }} m={"auto"} mt={"50px"} mb={"20px"}>
-      <Heading
-        fontSize={{ base: "2xl", md: "3xl" }}
-        m={{ base: "auto", lg: "0" }}
-        w={"fit-content"}
-        fontWeight={500}
-      >
-        Coordination Options Near You
-      </Heading>
-      <Accordion allowMultiple mt={"20px"}>
-        {data.map((item, i) => {
-          return (
-            <AccordionItem
-              key={i}
-              mb={"20px"}
-              border={"1px solid #e8e8e8"}
-              minH={"60px"}
-              _focus={{ bgColor: "white" }}
-              _hover={{ bgColor: "white" }}
-            >
-              <h2>
-                <AccordionButton
-                  _focus={{ bgColor: "white" }}
-                  _hover={{ bgColor: "white" }}
-                  fontSize={"23px"}
-                  color={"GrayText"}
-                >
-                  <Box as="span" flex="1" textAlign="left">
-                    {item.title}
-                  </Box>
-                  <AccordionIcon />
-                </AccordionButton>
-              </h2>
-              <AccordionPanel pb={4}>
-                <Grid
-                  w={"100%"}
-                  templateColumns={{
-                    base: "repeat(1,1fr)",
-                    sm: "repeat(2,1fr)",
-                    md: "repeat(4,1fr)",
-                    xl: "repeat(4,1fr)",
-                  }}
-                >
-                  {item.data.map((item) => (
-                    <UnorderedList key={item}>
-                      <ListItem 
-                        w={"fit-content"} 
-                        mr={"20px"} 
-                        color={"#b3b3b3"}
-                        cursor={"pointer"}
-                        _hover={{ color: "#000000" }}
-                        onClick={() => handleVenueTypeClick(item)}
-                      >
-                        {item}
-                      </ListItem>
-                    </UnorderedList>
-                  ))}
-                </Grid>
-              </AccordionPanel>
-            </AccordionItem>
-          );
-        })}
-      </Accordion>
-    </Box>
-  );
+  // Component removed - no longer displaying coordination options
+  return null;
 };
 
 export default Explore;

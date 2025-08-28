@@ -11,7 +11,7 @@ import {
   Text,
   useToast,
 } from "@chakra-ui/react";
-import DeleveryNavbar from "@/components/Navbar/DeleveryNavbar";
+import UnifiedNavbar from "@/components/Navbar/UnifiedNavbar";
 import Image from "next/image";
 import { MdOutlineDirections } from "react-icons/md";
 import { BsBookmarkPlus } from "react-icons/bs";
@@ -89,7 +89,7 @@ const Order = ({ restaurant }) => {
   }, [restaurant.id, user, restaurant, dispatch]);
   return (
     <Box>
-      <DeleveryNavbar />
+      <UnifiedNavbar showModeNavigation={true} />
       <Divider mt={"10px"} />
       <Flex
         w={{

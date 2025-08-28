@@ -1,11 +1,11 @@
 import React from "react";
 import GroupMode from "@/components/GroupMode/GroupMode";
-import Navbar from "@/components/Navbar";
+import UnifiedNavbar from "@/components/Navbar/UnifiedNavbar";
 
 const GroupModePage = () => {
   return (
     <>
-      <Navbar />
+      <UnifiedNavbar showModeNavigation={true} />
       <GroupMode />
     </>
   );

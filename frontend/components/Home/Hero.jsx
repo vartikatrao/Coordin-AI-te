@@ -21,23 +21,20 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   getLiveLocation,
   getLocationDetails,
-  searchReq,
 } from "@/redux/actions/PlacesAction";
 import { useRouter } from "next/router";
 import {
   getPlace,
-  getSearchSuccess,
   getSuggestionSuccess,
   startLocationLoading,
 } from "@/redux/slices/PlacesSlice";
-import { getRestrauntSuccess } from "@/redux/slices/PlacesSlice";
 
 const Hero = () => {
   const router = useRouter();
   const dispatch = useDispatch();
   const [text, setText] = useState("");
   const [search, setSearch] = useState("");
-  const { place, suggestions, locationLoad, searchResults } = useSelector(
+  const { place, suggestions, locationLoad } = useSelector(
     (state) => state.placeReducer
   );
   
@@ -85,6 +82,17 @@ const Hero = () => {
     return timeout;
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (search.trim()) {
+      // Redirect to chat page with the search query
+      router.push({
+        pathname: '/talk-to-coordinate',
+        query: { message: search.trim() }
+      });
+    }
+  };
+
   useEffect(() => {
     let timeoutId = handleChange(text, dispatch);
     return () => {
@@ -92,16 +100,7 @@ const Hero = () => {
     };
   }, [text, dispatch]);
 
-  useEffect(() => {
-    let timeoutId = handleSearch(search, dispatch);
-    if (search.length === 0) {
-      dispatch(getSearchSuccess([]));
-    }
-    return () => {
-      clearTimeout(timeoutId);
-      dispatch(getSearchSuccess([]));
-    };
-  }, [search, dispatch]);
+
 
   return (
     <Flex
@@ -220,8 +219,9 @@ const Hero = () => {
               <Text
                 display={{ base: "none", sm: "block" }}
                 minW={"fit-content"}
+                color={place ? "black" : "gray.500"}
               >
-                {place || "Bangalore North"}
+                {place || "Select location"}
               </Text>
             </Flex>
           </MenuButton>
@@ -268,7 +268,7 @@ const Hero = () => {
           </MenuList>
         </Menu>
         
-        <Box w={"100%"} position={"relative"}>
+        <Box as="form" w={"100%"} position={"relative"} onSubmit={handleSearchSubmit}>
           <InputGroup>
             <InputLeftElement pointerEvents="none">
               {<SearchIcon color="gray.300" />}
@@ -276,7 +276,7 @@ const Hero = () => {
             <Input
               borderLeftRadius={"0"}
               variant={"filled"}
-              type="tel"
+              type="text"
               placeholder="discover places"
               bgColor={"white"}
               _hover={{ bgColor: "white" }}
@@ -284,69 +284,17 @@ const Hero = () => {
               border={"none"}
               color={"black"}
               boxShadow={"0 2px 8px rgba(0, 0, 0, 0.1)"}
+              value={search}
               onChange={(e) => {
-                if (e.target.value.length < 1) {
-                  dispatch(getSearchSuccess([]));
-                } else {
-                  setSearch(e.target.value);
+                setSearch(e.target.value);
+              }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearchSubmit(e);
                 }
               }}
             />
           </InputGroup>
-          
-          {!searchResults.length && search.length > 1 && (
-            <Center
-              position={"absolute"}
-              bgColor={"white"}
-              w={"101%"}
-              maxH={"300px"}
-              h={"fit-content"}
-              overflow={"auto"}
-              zIndex={9}
-              p={"10px"}
-            >
-              <Spinner
-                thickness="4px"
-                speed="0.65s"
-                emptyColor="gray.200"
-                color="blue.500"
-                size="xl"
-              />
-            </Center>
-          )}
-          
-          {searchResults.length > 0 && (
-            <Box
-              position={"absolute"}
-              bgColor={"white"}
-              w={"101%"}
-              maxH={"300px"}
-              h={"fit-content"}
-              overflow={"auto"}
-              zIndex={9}
-              p={"10px"}
-            >
-              {searchResults?.map((item, i) => {
-                return (
-                  <Text
-                    zIndex={9}
-                    key={i}
-                    color={"black"}
-                    mb={"10px"}
-                    cursor={"pointer"}
-                    onClick={() => {
-                      router.push(
-                        `/${item.restaurant.location.city}/order/${item.restaurant.R.res_id}`
-                      );
-                    }}
-                  >
-                    {item.restaurant.name} ,
-                    <span>{item.restaurant.location.city}</span>
-                  </Text>
-                );
-              })}
-            </Box>
-          )}
         </Box>
       </Flex>
     </Flex>

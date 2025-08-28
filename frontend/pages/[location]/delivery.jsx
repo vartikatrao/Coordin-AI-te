@@ -1,7 +1,7 @@
 import Products from "@/components/Delivery/Products";
 import Sections from "@/components/Delivery/Sections";
 import Slider from "@/components/Delivery/slider/slider";
-import DeleveryNavbar from "@/components/Navbar/DeleveryNavbar";
+import UnifiedNavbar from "@/components/Navbar/UnifiedNavbar";
 import {
   Box,
   Breadcrumb,
@@ -20,7 +20,7 @@ const Delivery = () => {
 
   return (
     <Box>
-      <DeleveryNavbar />
+      <UnifiedNavbar showModeNavigation={true} />
       <Flex
         w={{
           base: "90%",

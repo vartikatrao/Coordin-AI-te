@@ -1,5 +1,5 @@
 import React from "react";
-import CommonNavbar from "@/components/Navbar/CommonNavbar";
+import UnifiedNavbar from "@/components/Navbar/UnifiedNavbar";
 import {
   Box,
   Container,
@@ -15,10 +15,10 @@ import {
 const SafetyPage = () => {
   return (
     <>
-      <CommonNavbar />
+      <UnifiedNavbar showModeNavigation={true} />
       <Container maxW="container.xl" py={8}>
         <VStack spacing={8} align="stretch">
-          <Heading textAlign="center" color="purple.600">
+          <Heading textAlign="center" color="black">
             Safety Mode
           </Heading>
           

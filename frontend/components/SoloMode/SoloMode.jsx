@@ -103,7 +103,7 @@ const SoloMode = () => {
       <Card mt={6}>
         <CardBody>
           <VStack spacing={4} align="stretch">
-            <Heading size="md" color="purple.600">AI Recommendations</Heading>
+            <Heading size="md" color="black">AI Recommendations</Heading>
             <Text>{recommendations.recommendations}</Text>
           </VStack>
         </CardBody>
@@ -139,7 +139,7 @@ const SoloMode = () => {
       <Box minH="100vh" bg="gray.50" display="flex" alignItems="center" justifyContent="center">
         <VStack spacing={4}>
           <Text color="gray.500">Please log in to access Solo Mode</Text>
-          <Button colorScheme="purple" onClick={() => window.location.href = '/'}>
+          <Button colorScheme="blackAlpha" onClick={() => window.location.href = '/'}>
             Go to Login
           </Button>
         </VStack>
@@ -156,7 +156,7 @@ const SoloMode = () => {
         <VStack spacing={8} align="stretch">
           {/* Welcome Section */}
           <Box textAlign="center" py={8}>
-            <Heading size="xl" mb={4} color="purple.600">
+            <Heading size="xl" mb={4} color="black">
               Find Your Perfect Place
             </Heading>
             <Text fontSize="lg" color="gray.600" maxW="600px" mx="auto">
@@ -176,7 +176,7 @@ const SoloMode = () => {
                   <HStack spacing={2} flexWrap="wrap">
                     {Object.entries(selectedPreferences).map(([key, value]) => 
                       value && (
-                        <Badge key={key} colorScheme="purple" variant="solid" px={3} py={1}>
+                        <Badge key={key} colorScheme="gray" variant="solid" px={3} py={1}>
                           {key}: {value}
                         </Badge>
                       )
@@ -202,7 +202,7 @@ const SoloMode = () => {
                 { value: "fitness", label: "💪 Fitness" },
                 { value: "health", label: "🏥 Health" }
               ],
-              "purple"
+              "gray"
             )}
 
             {renderPreferenceSection(

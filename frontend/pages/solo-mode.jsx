@@ -1,11 +1,11 @@
 import React from "react";
 import SoloMode from "@/components/SoloMode/SoloMode";
-import Navbar from "@/components/Navbar";
+import UnifiedNavbar from "@/components/Navbar/UnifiedNavbar";
 
 const SoloModePage = () => {
   return (
     <>
-      <Navbar />
+      <UnifiedNavbar showModeNavigation={true} />
       <SoloMode />
     </>
   );

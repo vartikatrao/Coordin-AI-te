@@ -1,4 +1,4 @@
-import DeleveryNavbar from "@/components/Navbar/DeleveryNavbar";
+import UnifiedNavbar from "@/components/Navbar/UnifiedNavbar";
 import {
   Box,
   Button,
@@ -41,7 +41,7 @@ const Profile = () => {
   }, [router, user]);
   return (
     <Box>
-      <DeleveryNavbar />
+      <UnifiedNavbar showModeNavigation={true} />
       <Divider mt={"10px"} />
       <Banner />
       <Flex w={{ base: "90%", md: "70%" }} m={"auto"} mt={"30px"} gap={"10px"}>

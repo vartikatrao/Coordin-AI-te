@@ -192,7 +192,7 @@ const GroupMode = () => {
       <Box minH="100vh" bg="gray.50" display="flex" alignItems="center" justifyContent="center">
         <VStack spacing={4}>
           <Text color="gray.500">Please log in to access Group Mode</Text>
-          <Button colorScheme="purple" onClick={() => window.location.href = '/'}>
+          <Button colorScheme="blackAlpha" onClick={() => window.location.href = '/'}>
             Go to Login
           </Button>
         </VStack>
@@ -233,10 +233,10 @@ const GroupMode = () => {
       {/* Header */}
       <Box bg="white" borderBottom="1px solid" borderColor="gray.200" px={6} py={4}>
         <Flex justify="space-between" align="center">
-          <Heading size="lg" color="purple.600">Group Mode</Heading>
+          <Heading size="lg" color="black">Group Mode</Heading>
           <Button
             leftIcon={<AddIcon />}
-            colorScheme="purple"
+            colorScheme="blackAlpha"
             onClick={onOpen}
           >
             Create Group
@@ -258,9 +258,9 @@ const GroupMode = () => {
                 key={group.id}
                 p={4}
                 cursor="pointer"
-                bg={currentGroup?.id === group.id ? 'purple.50' : 'white'}
+                bg={currentGroup?.id === group.id ? 'gray.50' : 'white'}
                 borderLeft={currentGroup?.id === group.id ? '4px solid' : 'none'}
-                borderColor="purple.500"
+                borderColor="gray.500"
                 _hover={{ bg: 'gray.50' }}
                 onClick={() => handleGroupSelect(group)}
               >
@@ -310,7 +310,7 @@ const GroupMode = () => {
           <Flex borderBottom="1px solid" borderColor="gray.200">
             <Button
               variant={activeTab === 'discovery' ? 'solid' : 'ghost'}
-              colorScheme={activeTab === 'discovery' ? 'purple' : 'gray'}
+              colorScheme={activeTab === 'discovery' ? 'blackAlpha' : 'gray'}
               borderRadius="none"
               onClick={() => setActiveTab('discovery')}
             >
@@ -319,7 +319,7 @@ const GroupMode = () => {
             </Button>
             <Button
               variant={activeTab === 'chat' ? 'solid' : 'ghost'}
-              colorScheme={activeTab === 'chat' ? 'purple' : 'gray'}
+              colorScheme={activeTab === 'chat' ? 'blackAlpha' : 'gray'}
               borderRadius="none"
               onClick={() => setActiveTab('chat')}
               isDisabled={!currentGroup}
@@ -329,7 +329,7 @@ const GroupMode = () => {
             </Button>
             <Button
               variant={activeTab === 'location' ? 'solid' : 'ghost'}
-              colorScheme={activeTab === 'location' ? 'purple' : 'gray'}
+              colorScheme={activeTab === 'location' ? 'blackAlpha' : 'gray'}
               borderRadius="none"
               onClick={() => setActiveTab('location')}
               isDisabled={!currentGroup}
