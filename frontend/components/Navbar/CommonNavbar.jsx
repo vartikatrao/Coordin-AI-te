@@ -46,7 +46,7 @@ const CommonNavbar = () => {
         <Flex justify="space-between" align="center" py={4}>
           {/* Logo/Brand */}
           <Box cursor="pointer" onClick={() => router.push('/')}>
-            <Text fontSize="xl" fontWeight="bold" color="purple.500">
+            <Text fontSize="xl" fontWeight="bold" color="#a60629">
               Coordinate
             </Text>
           </Box>
@@ -57,12 +57,12 @@ const CommonNavbar = () => {
               <Button
                 key={item.path}
                 variant={isActivePage(item.path) ? 'solid' : 'ghost'}
-                colorScheme={isActivePage(item.path) ? 'purple' : 'gray'}
+                bg={isActivePage(item.path) ? '#a60629' : 'transparent'} color={isActivePage(item.path) ? 'white' : 'gray.700'}
                 onClick={() => handleNavigation(item.path)}
                 size="md"
                 fontWeight="medium"
                 _hover={{
-                  bg: isActivePage(item.path) ? 'purple.600' : 'gray.100',
+                  bg: isActivePage(item.path) ? '#8a0522' : 'gray.100',
                 }}
               >
                 {item.name}
@@ -75,7 +75,7 @@ const CommonNavbar = () => {
             {user ? (
               <Button
                 variant="outline"
-                colorScheme="purple"
+                bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
                 onClick={() => router.push('/profile')}
                 size="md"
               >
@@ -83,7 +83,7 @@ const CommonNavbar = () => {
               </Button>
             ) : (
               <Button
-                colorScheme="purple"
+                bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
                 onClick={() => router.push('/')}
                 size="md"
               >
