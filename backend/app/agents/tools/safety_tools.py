@@ -1,122 +1,99 @@
-from crewai.tools import BaseTool
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+import os
 import json
-
-def compute_safety_score(place):
-    """Dummy safety score for now (extend later)"""
-    print("🛡️ [Safety Tool] Computing safety score...")
-    # Basic fallback: closer places = safer
-    distance = place.get("distance", 1000)
-    return round(max(0.1, min(1.0, 1.0 - distance/10000)), 2)
+import requests
+from datetime import datetime
+from crewai.tools import BaseTool
 
 class SafetyAssessmentTool(BaseTool):
     name: str = "SafetyAssessmentTool"
-    description: str = "Assess safety aspects of venues and locations for group meetups"
-    
-    def _run(self, venue_data: str = None, group_data: str = None) -> str:
-        """
-        Assess safety aspects of venues and provide safety recommendations
-        
-        Args:
-            venue_data: JSON string containing venue information
-            group_data: JSON string containing group member information
-            
-        Returns:
-            JSON string with safety assessment and recommendations
-        """
+    description: str = "Assess area safety around coordinates and time"
+
+    def _run(self, lat_lng_time: str) -> str:
+        """Dummy safety assessment (placeholders for now)"""
         try:
-            # Parse input data
-            venues = json.loads(venue_data) if venue_data else []
-            group_members = json.loads(group_data) if group_data else []
-            
-            safety_assessments = []
-            
-            for venue in venues:
-                # Basic safety assessment
-                safety_score = compute_safety_score(venue)
-                
-                # Extract safety-relevant information
-                venue_assessment = {
-                    "venue_id": venue.get("fsq_place_id", ""),
-                    "venue_name": venue.get("name", "Unknown"),
-                    "safety_score": safety_score,
-                    "safety_factors": {
-                        "distance_from_members": venue.get("distance", "unknown"),
-                        "rating": venue.get("rating", 0),
-                        "price_level": venue.get("price", 1),
-                        "hours_available": bool(venue.get("hours")),
-                        "has_contact_info": bool(venue.get("tel") or venue.get("website"))
-                    },
-                    "safety_recommendations": [],
-                    "accessibility_features": venue.get("features", {})
+            parts = lat_lng_time.split(",")
+            if len(parts) >= 2:
+                lat, lng = float(parts[0]), float(parts[1])
+                time_of_day = parts[2] if len(parts) > 2 else None
+            else:
+                return json.dumps({"error": "Invalid lat,lng format"})
+        except ValueError:
+            return json.dumps({"error": "Invalid coordinates"})
+
+        # Dummy safety score calculation
+        safety_score = 0.8  # Baseline safety
+
+        # Time-based adjustments
+        current_hour = datetime.now().hour
+        is_night = current_hour < 6 or current_hour > 20
+
+        if is_night:
+            safety_score -= 0.2
+
+        # Distance from city center (Bangalore)
+        center_lat, center_lng = 12.9716, 77.5946
+        distance_from_center = ((lat - center_lat) ** 2 + (lng - center_lng) ** 2) ** 0.5
+
+        if distance_from_center > 0.1:  # Far from center
+            safety_score -= 0.1
+
+        safety_score = max(0.1, min(1.0, safety_score))
+
+        result = {
+            "status": "success",
+            "safety_score": round(safety_score, 2),
+            "recommendations": [
+                "Travel in groups",
+                "Use well-lit routes",
+                "Share location with contacts"
+            ],
+            "assessment": {
+                "location": f"{lat},{lng}",
+                "time_assessed": datetime.now().isoformat(),
+                "is_night": is_night
+            }
+        }
+
+        return json.dumps(result, indent=2)
+
+    def assess_area(self, lat: float, lng: float, meeting_time: str = None) -> dict:
+        """Direct method for group agent to call"""
+        try:
+            # Dummy safety score calculation
+            safety_score = 0.8  # Baseline safety
+
+            # Time-based adjustments
+            current_hour = datetime.now().hour
+            is_night = current_hour < 6 or current_hour > 20
+
+            if is_night:
+                safety_score -= 0.2
+
+            # Distance from city center (Bangalore)
+            center_lat, center_lng = 12.9716, 77.5946
+            distance_from_center = ((lat - center_lat) ** 2 + (lng - center_lng) ** 2) ** 0.5
+
+            if distance_from_center > 0.1:  # Far from center
+                safety_score -= 0.1
+
+            safety_score = max(0.1, min(1.0, safety_score))
+
+            return {
+                "status": "success",
+                "safety_score": round(safety_score, 2),
+                "recommendations": [
+                    "Travel in groups",
+                    "Use well-lit routes",
+                    "Share location with contacts"
+                ],
+                "assessment": {
+                    "location": f"{lat},{lng}",
+                    "time_assessed": datetime.now().isoformat(),
+                    "is_night": is_night
                 }
-                
-                # Add safety recommendations based on assessment
-                recommendations = []
-                
-                if safety_score > 0.8:
-                    recommendations.append("High safety rating - excellent choice for group meetup")
-                elif safety_score > 0.6:
-                    recommendations.append("Good safety rating - suitable for group meetup")
-                elif safety_score > 0.4:
-                    recommendations.append("Moderate safety rating - consider additional precautions")
-                else:
-                    recommendations.append("Lower safety rating - verify location and consider alternatives")
-                
-                # Check for group-specific safety considerations
-                if len(group_members) > 6:
-                    recommendations.append("Large group - verify venue capacity and noise policies")
-                
-                # Check for accessibility requirements
-                accessibility_needed = any(
-                    member.get("constraints", {}).get("accessibility") 
-                    for member in group_members
-                )
-                if accessibility_needed:
-                    if venue.get("features", {}).get("wheelchair_accessible"):
-                        recommendations.append("Wheelchair accessible - meets accessibility requirements")
-                    else:
-                        recommendations.append("Accessibility requirements noted - verify venue accessibility")
-                
-                venue_assessment["safety_recommendations"] = recommendations
-                safety_assessments.append(venue_assessment)
-            
-            # Overall group safety recommendations
-            overall_recommendations = [
-                "Share meeting location with trusted contacts",
-                "Plan travel routes and check public transport options",
-                "Keep emergency contacts readily available",
-                "Verify venue is still open before traveling"
-            ]
-            
-            # Add group-specific recommendations
-            if len(group_members) >= 3:
-                overall_recommendations.append("Consider designating a group coordinator for communication")
-            
-            if any(member.get("age", 20) < 18 for member in group_members):
-                overall_recommendations.append("Minors in group - ensure appropriate supervision and safe venue choice")
-            
-            safety_report = {
-                "venue_assessments": safety_assessments,
-                "overall_safety_score": sum(v["safety_score"] for v in safety_assessments) / len(safety_assessments) if safety_assessments else 0,
-                "group_safety_recommendations": overall_recommendations,
-                "assessment_timestamp": "current",
-                "group_size": len(group_members),
-                "summary": f"Safety assessment completed for {len(safety_assessments)} venues and {len(group_members)} group members"
             }
-            
-            return json.dumps(safety_report, indent=2)
-            
         except Exception as e:
-            error_response = {
-                "error": f"Safety assessment failed: {str(e)}",
+            return {
                 "status": "error",
-                "fallback_recommendations": [
-                    "Choose well-lit, public venues",
-                    "Meet during daylight hours when possible",
-                    "Share location with trusted contacts",
-                    "Have emergency contacts available"
-                ]
+                "error": str(e)
             }
-            return json.dumps(error_response, indent=2)
