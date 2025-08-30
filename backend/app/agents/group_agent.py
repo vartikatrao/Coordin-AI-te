@@ -2,15 +2,18 @@ import json
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import os 
 
 from crewai import Agent, Crew
 from crewai.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_genai import ChatGoogleGenerativeAI
+from crewai.llm import LLM
 
 from .tools.foursquare_tool_group import FoursquareGroupTool
 from .tools.safety_tools import SafetyAssessmentTool
 from .group_tasks import create_group_coordination_tasks, create_quick_coordination_tasks
 from ..core.config import settings
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,12 +27,13 @@ class GroupCoordinationAgent:
         self.safety_tool = SafetyAssessmentTool()
         
         # Initialize Gemini 2.5 Flash LLM
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            google_api_key=settings.GEMINI_API_KEY,
-            temperature=0.1,
-            max_tokens=4000
-        )
+        # self.llm = ChatGoogleGenerativeAI(
+        #     model="gemini-2.5-flash",
+        #     google_api_key=settings.GEMINI_API_KEY,
+        #     temperature=0.1,
+        #     max_tokens=4000
+        # )
+        # self.llm = LLM(model="gemini/gemini-2.5-flash", api_key=os.getenv("GEMINI_API_KEY"))
         
         self.agents = self._create_agents()
         self.crew = self._create_crew()
@@ -37,7 +41,7 @@ class GroupCoordinationAgent:
     
     def _create_agents(self) -> Dict[str, Agent]:
         """Create all specialized agents for group coordination"""
-        
+        llm = LLM(model="gemini/gemini-2.5-flash", api_key=os.getenv("GEMINI_API_KEY"))
         # Requirements Analysis Agent
         requirements_analyzer = Agent(
             role="Group Requirements Analyzer",
@@ -47,7 +51,7 @@ class GroupCoordinationAgent:
             You have deep knowledge of location-based optimization and user experience design.""",
             verbose=True,
             allow_delegation=False,
-            llm=self.llm
+            llm=llm
         )
         
         # Venue Search and Analysis Agent  
@@ -60,7 +64,7 @@ class GroupCoordinationAgent:
             verbose=True,
             allow_delegation=False,
             tools=[self.foursquare_tool],
-            llm=self.llm
+            llm=llm
         )
         
         # Safety Assessment Agent
@@ -73,7 +77,7 @@ class GroupCoordinationAgent:
             verbose=True,
             allow_delegation=False,
             tools=[self.safety_tool],
-            llm=self.llm
+            llm=llm
         )
         
         # Optimization Agent
@@ -85,7 +89,7 @@ class GroupCoordinationAgent:
             and practical constraints to find optimal solutions for groups.""",
             verbose=True,
             allow_delegation=False,
-            llm=self.llm
+            llm=llm
         )
         
         # Personalization Agent
@@ -97,7 +101,7 @@ class GroupCoordinationAgent:
             concerns and preferences. You excel at making recommendations feel personal and relevant.""",
             verbose=True,
             allow_delegation=False,
-            llm=self.llm
+            llm=llm
         )
         
         # Coordination Agent
@@ -109,7 +113,7 @@ class GroupCoordinationAgent:
             confident decisions quickly. You understand the psychology of group coordination.""",
             verbose=True,
             allow_delegation=False,
-            llm=self.llm
+            llm=llm
         )
         
         return {
