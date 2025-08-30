@@ -11,6 +11,7 @@ from app.core.config import settings
 router = APIRouter()
 
 class SoloPageRequest(BaseModel):
+    # Support both structured preferences and text query formats
     purpose: Optional[str] = None
     mood: Optional[str] = None
     budget: Optional[str] = None
@@ -20,6 +21,10 @@ class SoloPageRequest(BaseModel):
     user_location: Optional[str] = None
     user_lat: Optional[float] = 12.9716
     user_lng: Optional[float] = 77.5946
+    
+    # Support rich query format for mood/routine based requests
+    query: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
 
 class SoloPageTitleRequest(BaseModel):
     purpose: str
@@ -44,39 +49,48 @@ async def get_solo_page_recommendations(request: SoloPageRequest):
     start_time = datetime.now()
     
     try:
-        # Validate that at least purpose is provided
-        if not request.purpose:
-            raise HTTPException(status_code=400, detail="Purpose is required")
-        
-        # Convert preferences to a query string
-        query_parts = [f"Find {request.purpose} places"]
-        
-        if request.mood:
-            query_parts.append(f"for {request.mood} mood")
-        if request.budget:
-            query_parts.append(f"budget: {request.budget}")
-        if request.time:
-            query_parts.append(f"time: {request.time}")
-        if request.transport:
-            query_parts.append(f"transport: {request.transport}")
-        if request.location:
-            query_parts.append(f"near {request.location}")
-        
-        query = ", ".join(query_parts)
-        
-        # Call the solo page agent
-        request_dict = {
-            "user_query": query,
-            "user_location": request.user_location or f"{request.user_lat},{request.user_lng}",
-            "preferences": {
-                "purpose": request.purpose,
-                "mood": request.mood,
-                "budget": request.budget,
-                "time": request.time,
-                "transport": request.transport,
-                "location": request.location
+        # Handle both query and structured preference formats
+        if request.query:
+            # Rich query format (from mood/routine layout)
+            query = request.query
+            request_dict = {
+                "user_query": query,
+                "user_location": request.user_location or f"{request.user_lat},{request.user_lng}",
+                "context": request.context or {}
             }
-        }
+        else:
+            # Structured preferences format
+            if not request.purpose:
+                raise HTTPException(status_code=400, detail="Purpose is required when not using query format")
+            
+            # Convert preferences to a query string
+            query_parts = [f"Find {request.purpose} places"]
+            
+            if request.mood:
+                query_parts.append(f"for {request.mood} mood")
+            if request.budget:
+                query_parts.append(f"budget: {request.budget}")
+            if request.time:
+                query_parts.append(f"time: {request.time}")
+            if request.transport:
+                query_parts.append(f"transport: {request.transport}")
+            if request.location:
+                query_parts.append(f"near {request.location}")
+            
+            query = ", ".join(query_parts)
+            
+            request_dict = {
+                "user_query": query,
+                "user_location": request.user_location or f"{request.user_lat},{request.user_lng}",
+                "preferences": {
+                    "purpose": request.purpose,
+                    "mood": request.mood,
+                    "budget": request.budget,
+                    "time": request.time,
+                    "transport": request.transport,
+                    "location": request.location
+                }
+            }
         
         result = run_solo_page_agent(request_dict)
         
