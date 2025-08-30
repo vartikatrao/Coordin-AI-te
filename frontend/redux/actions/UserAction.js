@@ -84,6 +84,11 @@ export const CreateUserEmail = async (name, email, password, phone, CustomToast,
         const res = await createUserWithEmailAndPassword(Auth, email, password);
         const { user } = res
         if (user) {
+            // Update Firebase Auth profile with display name
+            await updateProfile(user, {
+                displayName: name
+            });
+            
             const updatedUser = { ...user, displayName: name, phoneNumber: phone }
             try {
                 await setDoc(doc(db, "users", user.uid), { address: [], bookmarks: [], recent: [], orders: [], uid: user.uid, displayName: name, phoneNumber: phone, email: user.email, photoURL: user.photoURL });
@@ -199,7 +204,16 @@ export const AddOrderReq = async (id, add, dispatch, handleSuccess) => {
 
 export const UpdateUserDetails = async (dispatch, details, id, Done) => {
     try {
+        // Update Firestore document
         await updateDoc(doc(db, "users", id), details);
+        
+        // If displayName is being updated, also update Firebase Auth profile
+        if (details.displayName && Auth.currentUser) {
+            await updateProfile(Auth.currentUser, {
+                displayName: details.displayName
+            });
+        }
+        
         const res = await getDoc(doc(db, "users", id));
         dispatch(getUserDataSuccess(res.data()))
         Done()
