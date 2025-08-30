@@ -38,11 +38,36 @@ async def main():
     result = await agent.coordinate_group_meetup(members, meeting_time=meeting_time)
 
     # Step 4: Pretty Print
+    # print("\n🎯 Group Intent")
+    # print(json.dumps(result["results"].get("intent", {}), indent=2))
+
+    # print("\n🛡️ Safety Check (Raw)")
+    # print(json.dumps(result["results"].get("safety", {}), indent=2))
+
+    # print("\n🔍 Safety Explanation")
+    # print(json.dumps(result["results"].get("safety_explainer", {}), indent=2))
+
+
+    # print("\n🎉 Recommendations")
+    # venues = result["results"].get("venues", [])
+    # personalized = result["results"].get("personalized", [])
+    # for idx, v in enumerate(venues, start=1):
+    #     print(f"{idx}. {v.get('name')} - {v.get('location', {}).get('formatted_address', 'N/A')}")
+    #     for per in personalized:
+    #         if per.get("venue") == v.get("name"):
+    #             for member, reason in per["why_for_each"].items():
+    #                 print(f"   - {member}: {reason}")
+    #     print()
+    #the above patch is without saftey explainer.
+        # Step 4: Pretty Print
     print("\n🎯 Group Intent")
     print(json.dumps(result["results"].get("intent", {}), indent=2))
 
-    print("\n🛡️ Safety Check")
+    print("\n🛡️ Safety Check (Raw)")
     print(json.dumps(result["results"].get("safety", {}), indent=2))
+
+    print("\n🔍 Safety Explanation")
+    print(json.dumps(result["results"].get("safety_explainer", {}), indent=2))
 
     print("\n🎉 Recommendations")
     venues = result["results"].get("venues", [])
@@ -54,6 +79,7 @@ async def main():
                 for member, reason in per["why_for_each"].items():
                     print(f"   - {member}: {reason}")
         print()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
