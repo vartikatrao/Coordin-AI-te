@@ -148,24 +148,7 @@ class SoloPageAgent:
             context=[intent_task, location_task]
         )
         
-        # Task 4: Generate Recommendations
-        recommendation_task = Task(
-            description="""
-            Analyze the found places against user context and generate intelligent recommendations:
-            - Rank places based on relevance to user intent
-            - Provide detailed explanations for each recommendation
-            - Give timing advice and contextual tips
-            - Consider group composition and special requirements
-            - Explain why each place is suitable for the user's specific needs
-            
-            Use the Context Analyzer tool to provide personalized recommendations.
-            """,
-            agent=self.recommendation_agent,
-            expected_output="Personalized recommendations with explanations and contextual advice",
-            context=[intent_task, location_task, search_task]
-        )
-        
-        return [intent_task, location_task, search_task, recommendation_task]
+        return [intent_task, location_task, search_task]
     
     def process_query(self, user_query: str, user_location: str = None) -> Dict[str, Any]:
         """
@@ -184,7 +167,7 @@ class SoloPageAgent:
             
             # Create and run crew
             crew = Crew(
-                agents=[self.intent_agent, self.location_agent, self.search_agent, self.recommendation_agent],
+                agents=[self.intent_agent, self.location_agent, self.search_agent],
                 tasks=tasks,
                 verbose=True,
                 process=Process.sequential
@@ -193,27 +176,58 @@ class SoloPageAgent:
             # Execute the crew
             result = crew.kickoff()
             
-            # Parse the final result
+            # Extract the JSON data from the search task result
             try:
-                if isinstance(result, str):
-                    parsed_result = json.loads(result)
-                else:
-                    parsed_result = result
-                    
-                return {
-                    "status": "success",
-                    "query": user_query,
-                    "timestamp": datetime.now().isoformat(),
-                    "recommendations": parsed_result
-                }
+                # The crew returns task outputs, get the search task result
+                # which should be the last task in our 3-task sequence
+                search_task_result = None
                 
-            except json.JSONDecodeError:
-                # If result is not JSON, return as text
+                # If result has task outputs, extract the search task result
+                if hasattr(result, 'tasks_output') and result.tasks_output:
+                    # Get the last task (search task)
+                    search_task = result.tasks_output[-1]
+                    search_task_result = search_task.raw
+                elif isinstance(result, str):
+                    search_task_result = result
+                else:
+                    search_task_result = str(result)
+                
+                # Extract JSON from the search task result
+                if search_task_result:
+                    # Try to parse as JSON first
+                    try:
+                        places_data = json.loads(search_task_result)
+                    except json.JSONDecodeError:
+                        # If it's not JSON, it might be markdown-wrapped JSON
+                        # Extract JSON from between ```json and ```
+                        import re
+                        json_match = re.search(r'```json\s*(.*?)\s*```', search_task_result, re.DOTALL)
+                        if json_match:
+                            places_data = json.loads(json_match.group(1))
+                        else:
+                            raise ValueError("Could not extract JSON from result")
+                    
+                    # Extract just the places array if it's wrapped in a root object
+                    if isinstance(places_data, dict) and 'places' in places_data:
+                        places_data = places_data['places']
+                    
+                    return {
+                        "status": "success",
+                        "query": user_query,
+                        "timestamp": datetime.now().isoformat(),
+                        "places": places_data
+                    }
+                else:
+                    raise ValueError("No search task result found")
+                
+            except (json.JSONDecodeError, ValueError) as e:
+                # If we can't parse the JSON, return the raw result for debugging
                 return {
-                    "status": "success",
+                    "status": "error",
                     "query": user_query,
-                    "timestamp": datetime.now().isoformat(),
-                    "response": str(result)
+                    "error": f"Failed to parse places JSON: {str(e)}",
+                    "raw_result": str(result),
+                    "timestamp": datetime.now().isoformat()
                 }
                 
         except Exception as e:
