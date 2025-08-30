@@ -1076,7 +1076,7 @@ const SoloMode = () => {
         {/* Proactive recommendations logic removed - now using unified recommendations system */}
         {false ? (
           <VStack spacing={6}>
-            {proactiveRecommendations.map((rec, recIndex) => {
+            {recommendations.map((rec, recIndex) => {
               const locations = parseLocationRecommendations(rec.suggestions || {});
               
               return (
