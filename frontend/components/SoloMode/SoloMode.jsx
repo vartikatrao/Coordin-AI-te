@@ -699,6 +699,41 @@ const SoloMode = () => {
     </Box>
   );
 
+  // Helper function to deduplicate places by name and keep closest one
+  const deduplicateByClosest = (places) => {
+    const placesByName = new Map();
+    
+    places.forEach(place => {
+      const placeName = place.name?.toLowerCase().trim();
+      if (!placeName || placeName === 'unknown place') return;
+      
+      // Extract numeric distance for comparison (remove 'm' and convert to number)
+      const getDistanceValue = (distanceStr) => {
+        if (!distanceStr || distanceStr === 'Near you') return Infinity;
+        const match = distanceStr.match(/(\d+)/);
+        return match ? parseInt(match[1]) : Infinity;
+      };
+      
+      const currentDistance = getDistanceValue(place.distance);
+      
+      if (!placesByName.has(placeName)) {
+        placesByName.set(placeName, { ...place, _distanceValue: currentDistance });
+      } else {
+        const existing = placesByName.get(placeName);
+        // Keep the closer one
+        if (currentDistance < existing._distanceValue) {
+          placesByName.set(placeName, { ...place, _distanceValue: currentDistance });
+        }
+      }
+    });
+    
+    // Remove the helper _distanceValue property and return array
+    return Array.from(placesByName.values()).map(place => {
+      const { _distanceValue, ...cleanPlace } = place;
+      return cleanPlace;
+    });
+  };
+
   const parseLocationRecommendations = (recommendationData) => {
     try {
       const locations = [];
@@ -711,7 +746,8 @@ const SoloMode = () => {
       if (recommendationData && recommendationData.places && Array.isArray(recommendationData.places)) {
         console.log('✅ Found structured places data from backend');
         console.log('📊 Places data:', recommendationData.places);
-        return recommendationData.places.map((place, index) => ({
+        
+        const allPlaces = recommendationData.places.map((place, index) => ({
           name: place.name || 'Unknown Place',
           distance: place.distance ? `${place.distance}m` : 'Near you',
           cuisine: place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant',
@@ -724,12 +760,17 @@ const SoloMode = () => {
           features: place.features || {},
           index: index
         }));
+        
+        const deduplicatedPlaces = deduplicateByClosest(allPlaces);
+        console.log(`🎯 Deduplicated: ${allPlaces.length} → ${deduplicatedPlaces.length} places`);
+        return deduplicatedPlaces;
       }
       
       // NEW: Check for structured_places in the data
       if (recommendationData && recommendationData.structured_places && Array.isArray(recommendationData.structured_places)) {
         console.log('✅ Found structured_places data from backend');
-        return recommendationData.structured_places.map((place, index) => ({
+        
+        const allStructuredPlaces = recommendationData.structured_places.map((place, index) => ({
           name: place.name || 'Unknown Place',
           distance: place.distance ? `${place.distance}m` : 'Near you',
           cuisine: place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant',
@@ -741,6 +782,10 @@ const SoloMode = () => {
           features: place.features || {},
           index: index
         }));
+        
+        const deduplicatedStructuredPlaces = deduplicateByClosest(allStructuredPlaces);
+        console.log(`🎯 Deduplicated structured: ${allStructuredPlaces.length} → ${deduplicatedStructuredPlaces.length} places`);
+        return deduplicatedStructuredPlaces;
       }
       
       // First check if we have structured JSON data from backend
