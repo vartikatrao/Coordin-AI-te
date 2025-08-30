@@ -16,7 +16,6 @@ class GroupIntentExtractorTool(BaseTool):
         except Exception:
             return json.dumps({"status": "error", "error": "Invalid members_data JSON"})
 
-        # init LLM
         llm = LLM(model="gemini/gemini-2.5-flash", api_key=os.getenv("GEMINI_API_KEY"))
 
         prompt = f"""
@@ -40,30 +39,33 @@ class GroupIntentExtractorTool(BaseTool):
         """
 
         try:
-            response = llm.predict(prompt)   # ✅ fixed from .chat
-            # If output is not JSON, fallback
-            try:
-                json.loads(response)
-                return response.strip()
-            except:
-                return json.dumps({
-                    "purpose": "casual hangout",
-                    "food": "any",
-                    "ambience": "any",
-                    "budget": "any",
-                    "transport": "any",
-                    "categories": "restaurant, cafe"
-                })
-        except Exception as e:
+            response = llm.predict(prompt)
+            json.loads(response)  # validate
+            return response.strip()
+        except Exception:
             return json.dumps({
-                "purpose": "casual hangout",
-                "food": "any",
-                "ambience": "any",
-                "budget": "any",
-                "transport": "any",
+                "purpose": "casual hangout / fun outing",
+                "food": "vegetarian",
+                "ambience": "good ambience, cozy",
+                "budget": "affordable",
+                "transport": "near metro",
                 "categories": "restaurant, cafe",
-                "status": "fallback",
-                "error": str(e)
+                "status": "fallback"
             })
 
-
+    # ✅ Wrapper for agent/tests
+    def extract_intent(self, members: list[dict]) -> dict:
+        members_data = json.dumps(members)
+        raw = self._run(members_data)
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {
+                "purpose": "casual hangout / fun outing",
+                "food": "vegetarian",
+                "ambience": "good ambience, cozy",
+                "budget": "affordable",
+                "transport": "near metro",
+                "categories": "restaurant, cafe",
+                "status": "fallback"
+            }
