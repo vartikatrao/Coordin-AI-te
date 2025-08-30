@@ -1,0 +1,30 @@
+{
+  "name": "zomato",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@chakra-ui/icons": "^2.0.19",
+    "@chakra-ui/react": "^2.6.1",
+    "@react-google-maps/api": "^2.18.1",
+    "@reduxjs/toolkit": "^1.9.5",
+    "axios": "^1.4.0",
+    "dotenv": "^16.0.3",
+    "eslint": "8.41.0",
+    "eslint-config-next": "13.4.3",
+    "firebase": "^9.22.1",
+    "next": "13.4.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-geocode": "^0.2.3",
+    "react-icons": "^4.8.0",
+    "react-markdown": "^10.1.0",
+    "react-redux": "^8.0.5",
+    "redux": "^4.2.1"
+  }
+}
