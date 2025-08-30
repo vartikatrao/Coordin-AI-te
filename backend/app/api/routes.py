@@ -5,8 +5,12 @@ import asyncio
 from datetime import datetime
 
 from ..agents.solo_agent import create_solo_agent
+<<<<<<< HEAD
 from ..agents.group_agent import create_group_agent, GroupCoordinationAgent  # Import both the factory and the class if needed
 from ..agents.tools.preference_learning import create_preference_learning_system
+=======
+from ..core.config import settings
+>>>>>>> f834dd3cb270279c0ea76a3541d512bf0639c887
 
 # Solo Router
 solo_router = APIRouter(prefix="/solo", tags=["solo"])
@@ -29,6 +33,7 @@ class PlaceDetailsRequest(BaseModel):
     fsq_place_id: str = Field(..., description="Foursquare place ID")
     fields: Optional[List[str]] = Field(default=None, description="Specific fields to retrieve")
 
+<<<<<<< HEAD
 class GroupMember(BaseModel):
     name: str = Field(..., description="Member name", example="Alice")
     age: int = Field(..., description="Member age", example=25, ge=13, le=100)
@@ -45,6 +50,11 @@ class GroupCoordinationRequest(BaseModel):
 class PreferenceUpdateRequest(BaseModel):
     user_id: str = Field(..., description="User identifier")
     interaction_data: Dict[str, Any] = Field(..., description="Interaction data for learning")
+=======
+class TitleGenerationRequest(BaseModel):
+    message: str = Field(..., description="User message to generate title from", example="Find me coffee shops near Indiranagar")
+    max_length: Optional[int] = Field(default=100, description="Maximum title length", example=100)
+>>>>>>> f834dd3cb270279c0ea76a3541d512bf0639c887
 
 class APIResponse(BaseModel):
     status: str = Field(..., description="Response status")
@@ -424,4 +434,127 @@ async def get_supported_intents():
         status="success",
         data=intents,
         timestamp=datetime.now().isoformat()
+<<<<<<< HEAD
     )
+=======
+    )
+
+
+async def generate_title_with_gemini(message: str, max_length: int = 100) -> str:
+    """
+    Generate an intelligent title for a chat conversation using Gemini AI
+    """
+    try:
+        import google.generativeai as genai
+        
+        # Configure Gemini
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
+        # Create prompt for title generation
+        prompt = f"""
+        Generate a concise, descriptive title for a conversation that started with this message:
+        
+        "{message}"
+        
+        Requirements:
+        - Maximum {max_length} characters
+        - Be descriptive and relevant
+        - Keep it conversational but concise
+        - Don't include quotes or special formatting
+        - Focus on the main topic or intent
+        
+        Return only the title, nothing else.
+        """
+        
+        # Generate response
+        response = model.generate_content(prompt)
+        
+        # Clean up the response
+        title = response.text.strip()
+        
+        # Ensure it's within the max length
+        if len(title) > max_length:
+            title = title[:max_length-3] + "..."
+        
+        return title
+        
+    except Exception as e:
+        # Fallback to simple title generation
+        print(f"Error generating title with Gemini: {e}")
+        
+        # Simple fallback: use first 50 characters or first sentence
+        if len(message) <= max_length:
+            return message
+        
+        # Try to find a sentence boundary
+        for i in range(min(50, len(message))):
+            if message[i] in '.!?':
+                return message[:i+1]
+        
+        return message[:max_length-3] + "..."
+
+
+@router.post("/solo/generate-title", response_model=APIResponse)
+async def generate_chat_title(request: TitleGenerationRequest):
+    """
+    Generate an intelligent title for a chat conversation using Gemini AI
+    
+    Takes a user message and generates a concise, descriptive title
+    that captures the essence of the conversation topic.
+    """
+    start_time = datetime.now()
+    
+    try:
+        # Validate input
+        if not request.message or not request.message.strip():
+            raise HTTPException(status_code=400, detail="Message cannot be empty")
+        
+        # Call Gemini API to generate title
+        title = await generate_title_with_gemini(request.message, request.max_length)
+        
+        end_time = datetime.now()
+        processing_time = (end_time - start_time).total_seconds()
+        
+        return APIResponse(
+            status="success",
+            data={
+                "title": title,
+                "original_message": request.message,
+                "max_length": request.max_length,
+                "generated_with": "gemini-2.0-flash-exp"
+            },
+            timestamp=datetime.now().isoformat(),
+            processing_time=processing_time
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        end_time = datetime.now()
+        processing_time = (end_time - start_time).total_seconds()
+        
+        return APIResponse(
+            status="error",
+            error=str(e),
+            timestamp=datetime.now().isoformat(),
+            processing_time=processing_time
+        )
+
+
+@router.get("/test")
+async def test_endpoint():
+    """Simple test endpoint for debugging"""
+    return APIResponse(
+        status="success",
+        data={
+            "message": "Test endpoint working",
+            "timestamp": datetime.now().isoformat(),
+            "agent_initialized": solo_agent is not None
+        },
+        timestamp=datetime.now().isoformat()
+    )
+
+
+# Error handlers
+>>>>>>> f834dd3cb270279c0ea76a3541d512bf0639c887
