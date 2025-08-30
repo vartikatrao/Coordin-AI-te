@@ -225,6 +225,39 @@ const SoloMode = () => {
     });
   };
 
+  const findClosestRoutine = () => {
+    const currentHour = currentTime.getHours();
+    const currentMinutes = currentTime.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinutes;
+
+    let closestRoutine = null;
+    let minTimeDiff = Infinity;
+
+    // Only check user-added routines, not template routines
+    const allRoutines = userRoutines;
+
+    allRoutines.forEach(routine => {
+      const [routineHour, routineMinutes] = routine.time.split(':').map(Number);
+      const routineTimeInMinutes = routineHour * 60 + routineMinutes;
+      
+      // Calculate time difference (considering both forward and backward)
+      let timeDiff = Math.abs(currentTimeInMinutes - routineTimeInMinutes);
+      
+      // Consider next day for routines that might be more relevant
+      const nextDayDiff = Math.abs((currentTimeInMinutes + 24 * 60) - routineTimeInMinutes);
+      const prevDayDiff = Math.abs(currentTimeInMinutes - (routineTimeInMinutes + 24 * 60));
+      
+      timeDiff = Math.min(timeDiff, nextDayDiff, prevDayDiff);
+
+      if (timeDiff < minTimeDiff) {
+        minTimeDiff = timeDiff;
+        closestRoutine = routine;
+      }
+    });
+
+    return closestRoutine;
+  };
+
   const generateRecommendations = useCallback(async (type = 'routine', moodData = null) => {
     setIsLoading(true);
     try {
@@ -354,38 +387,7 @@ const SoloMode = () => {
     });
   };
 
-  const findClosestRoutine = () => {
-    const currentHour = currentTime.getHours();
-    const currentMinutes = currentTime.getMinutes();
-    const currentTimeInMinutes = currentHour * 60 + currentMinutes;
 
-    let closestRoutine = null;
-    let minTimeDiff = Infinity;
-
-    // Only check user-added routines, not template routines
-    const allRoutines = userRoutines;
-
-    allRoutines.forEach(routine => {
-      const [routineHour, routineMinutes] = routine.time.split(':').map(Number);
-      const routineTimeInMinutes = routineHour * 60 + routineMinutes;
-      
-      // Calculate time difference (considering both forward and backward)
-      let timeDiff = Math.abs(currentTimeInMinutes - routineTimeInMinutes);
-      
-      // Consider next day for routines that might be more relevant
-      const nextDayDiff = Math.abs((currentTimeInMinutes + 24 * 60) - routineTimeInMinutes);
-      const prevDayDiff = Math.abs(currentTimeInMinutes - (routineTimeInMinutes + 24 * 60));
-      
-      timeDiff = Math.min(timeDiff, nextDayDiff, prevDayDiff);
-
-      if (timeDiff < minTimeDiff) {
-        minTimeDiff = timeDiff;
-        closestRoutine = routine;
-      }
-    });
-
-    return closestRoutine;
-  };
 
   const generateProactiveRecommendations = async () => {
     if (!coordinates && !place) return;
