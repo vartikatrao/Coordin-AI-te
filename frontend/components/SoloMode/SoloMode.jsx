@@ -620,9 +620,9 @@ const SoloMode = () => {
           </CardBody>
         </Card>
       ) : (
-        <SimpleGrid columns={[1, 2, 3]} spacing={4}>
+        <VStack spacing={3}>
           {userRoutines.map((routine) => (
-            <Card key={routine.id} cursor="pointer" _hover={{ shadow: 'lg' }}>
+            <Card key={routine.id} cursor="pointer" _hover={{ shadow: 'lg' }} w="100%">
               <CardBody>
                 <HStack spacing={3}>
                   <Text fontSize="2xl">{routine.icon}</Text>
@@ -655,7 +655,7 @@ const SoloMode = () => {
               </CardBody>
             </Card>
           ))}
-        </SimpleGrid>
+        </VStack>
       )}
     </Box>
   );
