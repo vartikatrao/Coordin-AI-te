@@ -1759,8 +1759,7 @@ const SoloMode = () => {
                 {renderPermanentRecommendationsSection()}
 
                 {/* Old unified recommendations section - disabled */}
-                {false && (
-                {recommendations.length > 0 && (
+                {false && recommendations.length > 0 && (
                   <Box>
                     <VStack spacing={6}>
                       {recommendations.map((rec, recIndex) => {
