@@ -1,90 +1,204 @@
-# Zomato Clone
+# Coordin-AI-te
+
+**Coordinate better. Meet faster. Travel safer.**
 
 ## Description
 
-Zomato clone is a clone of zomato.com which provides users with a convenient and reliable solution for finding restaurants and ordering food online.
+Coordin-AI-te is an AI-powered location coordination and recommendation platform that helps users discover places and coordinate meetups intelligently. The application features advanced AI agents, personalized recommendations, and smart group coordination capabilities to enhance your location-based experiences.
 
-## Teck stacks used
+## Tech Stack
 
-- Next.js (as a frontend framework).
-- Chakra UI (for styling).
-- firebase (for authentication and database).
-- reduxjs/toolkit (for global state management).
-- axios (for fetching data)
-- react-google-maps/api (for map integration on restraunt details page).
-- react-icons (for icons).
+**Frontend:**
+- Next.js (React framework)
+- Chakra UI (Component library and styling)
+- Redux Toolkit (State management)
+- Firebase (Authentication and real-time database)
+- React Google Maps API (Location services)
+- React Icons & React Markdown
 
-## Installation
-
-1. Clone this repo to your local machine using 
-```
-git clone https://github.com/Varun8177/zomato-clone.git
-```
-2. Go to the folder where you cloned this repo and install dependencies using 
-```
-npm install
-```
-
-3. Run the project in developer mode using 
-```
-npm run dev
-```
-4. Run the project in production mode
-```
-npm run start
-```
+**Backend:**
+- FastAPI (Python web framework)
+- CrewAI (Multi-agent AI framework)
+- Google Generative AI (Gemini models)
+- Foursquare API (Place data and recommendations)
+- Firebase Admin SDK (Authentication)
+- ChromaDB (Vector database for embeddings)
+- OpenAI & LiteLLM (AI model integration)
 
 ## Features
 
-`security`
+### 🤖 AI-Powered Modes
 
-- user authentication (there are three methods to authenticate a user)
-  - google authentication.
-  - email and password authentication.
-  - OTP authentication using mobile number.
+**Solo Mode - Personal AI Concierge**
+- Hyperlocal smart assistant for individual recommendations
+- Mood-based location suggestions (happy, tired, productive, etc.)
+- Routine-based recommendations (morning coffee, workout, lunch)
+- Context-aware suggestions based on time, weather, and location
+- Advanced filtering (budget, atmosphere, features, radius)
+- Real-time personalized place discovery
 
-`user experience`
+**Group Mode - Smart Meetup Coordination**
+- Equidistant meetup finder for optimal group locations
+- AI-powered group preferences analysis
+- Real-time group chat with polls and voting
+- Friend discovery and invitation system
+- Collaborative decision-making tools
 
-- user gets a minimal designed UI (based on zomato design).
-- user gets the restraunts data based on their location.
-- user gets the single restraunt page which contains details of a particular restraunt.
-- user can bookmark any restraunt and it will be visible on his profile page.
-- when a user clicks on any product from the single product page it will show more details about it and user can order it.
-- while ordering a product user can add a new address or select previous addresses if any.
-- Location of user
-  - can get his current location.
-  - can search for a desired location.
-- Methods for user.
-  - sorting data based on popularity,rating
-  - filtering data based on their cuisines.
-  - search for restraunts based on location.
-  - pagination to go to another page.
-- Dashboard for user.
-  - can check out his recently viewed restraunts.
-  - can check the orders history and its details when clicked on it.
-  - can check the bookmarks and remove if want to.
-  - can check his added adressess.
-- user gets form validation and errors will be notified via toasts if something went wrong.
+### 🔐 Authentication & Security
+- Firebase Authentication with multiple methods:
+  - Google OAuth
+  - Email/Password
+  - Phone OTP verification
+- Secure user sessions and data protection
 
-## screenshots
+### 🎯 Smart Features
 
-### Home Page
+**Location Intelligence:**
+- Real-time location detection and search
+- Foursquare-powered place database
+- Distance-based recommendations
+- Safety route suggestions
 
-![homepage](https://firebasestorage.googleapis.com/v0/b/zomato-clone-c4414.appspot.com/o/readme%2Fhome.jpg?alt=media&token=f15901c2-4858-411c-afb0-04ace2a34431)
+**Personalization:**
+- AI learns from user behavior and preferences
+- Customizable daily routines
+- Mood tracking and adaptation
+- Context-aware proactive suggestions
 
-### Restraunts page
+**Group Coordination:**
+- Real-time messaging and polls
+- Optimal meeting point calculations
+- Group preference analysis
+- Collaborative filtering and voting
 
-![restraunts1](https://firebasestorage.googleapis.com/v0/b/zomato-clone-c4414.appspot.com/o/readme%2Fres1.jpg?alt=media&token=e1591a64-f25c-4f12-b691-1281ec2b3484)
-![restraunts2](https://firebasestorage.googleapis.com/v0/b/zomato-clone-c4414.appspot.com/o/readme%2Fres2.jpg?alt=media&token=eb17658e-3966-4e4e-8459-4b27a2201dc9)
+### 📱 User Experience
+- Modern, responsive UI with Chakra UI
+- Real-time updates and notifications
+- Comprehensive error handling with toast notifications
+- Progressive web app capabilities
+- Mobile-optimized interface
 
-### Restraunt Details page
+## Installation & Setup
 
-![details](https://firebasestorage.googleapis.com/v0/b/zomato-clone-c4414.appspot.com/o/readme%2Fsingle.jpg?alt=media&token=910da63c-1041-43f9-bd15-653f0d2c044c)
+### Prerequisites
+- Node.js (v16+)
+- Python (v3.8+)
+- Firebase project
+- Foursquare API key
+- Google AI API key
 
-### User Dashboard or profile page
+### Frontend Setup
 
-![profile](https://firebasestorage.googleapis.com/v0/b/zomato-clone-c4414.appspot.com/o/readme%2Fprofile1.jpg?alt=media&token=d94a4802-a39e-4aeb-a37a-fd5e5749f34b)
+1. Clone the repository:
+```bash
+git clone https://github.com/your-username/Coordin-AI-te.git
+cd Coordin-AI-te/frontend
+```
 
-## Made by
+2. Install dependencies:
+```bash
+npm install
+```
 
-Varun Ergurala
+3. Configure environment variables:
+```bash
+# Create .env.local file with your Firebase config
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+# ... other Firebase config
+```
+
+4. Run the development server:
+```bash
+npm run dev
+```
+
+### Backend Setup
+
+1. Navigate to backend directory:
+```bash
+cd backend
+```
+
+2. Create virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Configure environment variables:
+```bash
+# Copy env.example to .env and fill in your API keys
+cp env.example .env
+# Edit .env with your:
+# - FOURSQUARE_API_KEY
+# - GOOGLE_AI_API_KEY
+# - FIREBASE credentials
+```
+
+5. Run the backend server:
+```bash
+uvicorn main:app --reload
+```
+
+## API Endpoints
+
+### Solo Mode API (`/api/v1/solo/`)
+- `POST /query` - Process natural language queries for place recommendations
+- `POST /place-details` - Get detailed information about specific places
+- `GET /examples` - Get example queries
+- `GET /supported-intents` - Get supported intent categories
+
+### Group Mode API (`/api/v1/group/`)
+- `POST /coordinate` - Find optimal meeting locations for groups
+- `POST /quick-coordinate` - Quick group coordination
+- `POST /analyze-preferences` - Analyze group preferences
+
+### AI Assistant API (`/api/ai/`)
+- `POST /solo-recommendations` - Get AI-powered solo recommendations
+- `POST /group-meetup` - Generate group meetup suggestions
+- `POST /proactive-alert` - Context-aware proactive alerts
+
+## Project Structure
+
+```
+Coordin-AI-te/
+├── frontend/           # Next.js React application
+│   ├── components/     # Reusable UI components
+│   ├── pages/         # Next.js pages and API routes
+│   ├── redux/         # State management
+│   └── services/      # API service functions
+├── backend/           # FastAPI Python application
+│   ├── app/
+│   │   ├── agents/    # AI agents (Solo, Group)
+│   │   ├── api/       # API route handlers
+│   │   ├── core/      # Configuration and utilities
+│   │   └── routers/   # FastAPI routers
+│   └── requirements.txt
+└── README.md
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- CrewAI for the multi-agent framework
+- Foursquare for location data
+- Google AI for intelligent recommendations
+- Firebase for real-time capabilities
