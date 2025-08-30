@@ -3,20 +3,32 @@ import json
 import math
 from datetime import datetime, time
 from typing import List, Dict, Any, Optional
-from crewai_tools import BaseTool
+from crewai.tools import BaseTool
 from ...core.config import settings
+from pydantic import PrivateAttr
 
 class SafetyAssessmentTool(BaseTool):
     name: str = "SafetyAssessmentTool"
     description: str = "Assess safety of venues and routes based on open venues, emergency services, time of day, and ratings"
-    
+    _api_key: str =  PrivateAttr()
+    _headers: dict = PrivateAttr()
+    _base_url: str = PrivateAttr(default="https://places-api.foursquare.com")
+
     def __init__(self):
         super().__init__()
-        self.api_key = settings.FOURSQUARE_API_KEY
-        self.base_url = "https://places-api.foursquare.com/places"
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Accept": "application/json"
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+
+        # Load key (use env var if available, fallback otherwise)
+        self._api_key = os.getenv(
+            "FSQ_API_KEY")
+
+
+        self._headers = {
+            "accept": "application/json",
+            "X-Places-Api-Version": "2025-06-17",
+            "authorization": f"Bearer {self._api_key}"
         }
     
     def calculate_distance(self, lat1: float, lng1: float, lat2: float, lng2: float) -> float:

@@ -3,8 +3,9 @@ import json
 import math
 from typing import List, Dict, Optional, Any
 from crewai.tools import BaseTool
-from pydantic import BaseModel
+from pydantic import BaseModel,PrivateAttr
 from ...core.config import settings
+import os
 
 
 class GroupMember(BaseModel):
@@ -19,15 +20,29 @@ class FoursquareGroupTool(BaseTool):
     name: str = "FoursquareGroupTool"
     description: str = "Search for places suitable for group meetups using Foursquare Places API"
     
+    # api_key: str = os.getenv("FOURSQUARE_API_KEY", "")
+    # base_url: str = "https://places-api.foursquare.com/places"
+    # headers: Dict[str, str] = {}
+    _api_key: str =  PrivateAttr()
+    _headers: dict = PrivateAttr()
+    _base_url: str = PrivateAttr(default="https://places-api.foursquare.com")
+
     def __init__(self):
         super().__init__()
-        self.api_key = settings.FOURSQUARE_API_KEY
-        self.base_url = "https://places-api.foursquare.com/places"
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Accept": "application/json"
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+
+        # Load key (use env var if available, fallback otherwise)
+        self._api_key = os.getenv(
+            "FSQ_API_KEY")
+
+
+        self._headers = {
+            "accept": "application/json",
+            "X-Places-Api-Version": "2025-06-17",
+            "authorization": f"Bearer {self._api_key}"
         }
-    
     def calculate_centroid(self, locations: List[str]) -> tuple:
         """Calculate geographic centroid of multiple locations"""
         total_lat = 0
