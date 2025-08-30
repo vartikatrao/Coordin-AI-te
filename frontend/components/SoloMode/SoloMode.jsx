@@ -684,13 +684,13 @@ const SoloMode = () => {
         console.log('📊 Places data:', recommendationData.places);
         return recommendationData.places.map((place, index) => ({
           name: place.name || 'Unknown Place',
-          distance: place.Distance || place.distance || 'Near you',
-          cuisine: place.Categories || (place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant'),
+          distance: place.distance ? `${place.distance}m` : 'Near you',
+          cuisine: place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant',
           rating: place.rating || '',
-          priceLevel: place.price || '',
-          address: place.Address || (place.location ? place.location.formatted_address : ''),
-          description: `${place.Categories || 'Restaurant'} located at ${place.Address || (place.location ? place.location.formatted_address : 'your area')}`,
-          fsq_place_id: place['Foursquare ID'] || place.fsq_id || '',
+          priceLevel: place.price ? '€'.repeat(place.price) : '',
+          address: place.location ? place.location.formatted_address || place.location.address : '',
+          description: `${place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant'} located at ${place.location ? (place.location.formatted_address || place.location.address) : 'your area'}`,
+          fsq_place_id: place.fsq_id || '',
           features: place.features || {},
           index: index
         }));
