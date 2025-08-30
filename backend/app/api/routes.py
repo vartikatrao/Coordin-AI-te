@@ -2,8 +2,6 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 import asyncio
-import json
-import requests
 from datetime import datetime
 
 from ..agents.solo_agent import create_solo_agent
@@ -250,6 +248,61 @@ async def get_supported_intents():
     )
 
 
+async def generate_title_with_gemini(message: str, max_length: int = 100) -> str:
+    """
+    Generate an intelligent title for a chat conversation using Gemini AI
+    """
+    try:
+        import google.generativeai as genai
+        
+        # Configure Gemini
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
+        # Create prompt for title generation
+        prompt = f"""
+        Generate a concise, descriptive title for a conversation that started with this message:
+        
+        "{message}"
+        
+        Requirements:
+        - Maximum {max_length} characters
+        - Be descriptive and relevant
+        - Keep it conversational but concise
+        - Don't include quotes or special formatting
+        - Focus on the main topic or intent
+        
+        Return only the title, nothing else.
+        """
+        
+        # Generate response
+        response = model.generate_content(prompt)
+        
+        # Clean up the response
+        title = response.text.strip()
+        
+        # Ensure it's within the max length
+        if len(title) > max_length:
+            title = title[:max_length-3] + "..."
+        
+        return title
+        
+    except Exception as e:
+        # Fallback to simple title generation
+        print(f"Error generating title with Gemini: {e}")
+        
+        # Simple fallback: use first 50 characters or first sentence
+        if len(message) <= max_length:
+            return message
+        
+        # Try to find a sentence boundary
+        for i in range(min(50, len(message))):
+            if message[i] in '.!?':
+                return message[:i+1]
+        
+        return message[:max_length-3] + "..."
+
+
 @router.post("/solo/generate-title", response_model=APIResponse)
 async def generate_chat_title(request: TitleGenerationRequest):
     """
@@ -276,7 +329,8 @@ async def generate_chat_title(request: TitleGenerationRequest):
             data={
                 "title": title,
                 "original_message": request.message,
-                "max_length": request.max_length
+                "max_length": request.max_length,
+                "generated_with": "gemini-2.0-flash-exp"
             },
             timestamp=datetime.now().isoformat(),
             processing_time=processing_time
@@ -290,68 +344,10 @@ async def generate_chat_title(request: TitleGenerationRequest):
         
         return APIResponse(
             status="error",
-            error=f"Failed to generate title: {str(e)}",
+            error=str(e),
             timestamp=datetime.now().isoformat(),
             processing_time=processing_time
         )
-
-
-async def generate_title_with_gemini(message: str, max_length: int = 100) -> str:
-    """
-    Generate a conversation title using Gemini AI
-    """
-    if not settings.GEMINI_API_KEY:
-        # Fallback to simple truncation if no API key
-        return message[:max_length] + "..." if len(message) > max_length else message
-    
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
-    headers = {"Content-Type": "application/json"}
-    
-    system_prompt = f"""Create a brief title (max {max_length} characters) for this user message. Return only the title:"""
-    
-    body = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": system_prompt},
-                    {"text": f"User message: {message}\n\nGenerate title:"}
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.1,
-            "maxOutputTokens": 300
-        }
-    }
-    
-    try:
-        # Make async request
-        response = await asyncio.to_thread(requests.post, url, headers=headers, json=body, timeout=10)
-        response.raise_for_status()
-        
-        response_data = response.json()
-        
-        # Handle different response structures
-        candidate = response_data["candidates"][0]
-        if "content" in candidate and "parts" in candidate["content"]:
-            generated_title = candidate["content"]["parts"][0]["text"].strip()
-        else:
-            finish_reason = candidate.get("finishReason", "UNKNOWN")
-            raise Exception(f"No text content in response. Finish reason: {finish_reason}")
-        
-        # Clean up the title
-        generated_title = generated_title.strip('"\'`')
-        
-        # Ensure it's within max length
-        if len(generated_title) > max_length:
-            generated_title = generated_title[:max_length-3] + "..."
-        
-        return generated_title if generated_title else message[:max_length]
-        
-    except Exception as e:
-        # Fallback to simple truncation
-        fallback_title = message[:max_length] + "..." if len(message) > max_length else message
-        return fallback_title
 
 
 @router.get("/test")

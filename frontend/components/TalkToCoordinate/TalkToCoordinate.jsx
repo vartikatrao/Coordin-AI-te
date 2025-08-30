@@ -24,11 +24,11 @@ import {
   Alert,
   AlertIcon,
   Badge,
-  SimpleGrid,
 } from '@chakra-ui/react';
 import { ChatIcon, HamburgerIcon, AddIcon, ArrowForwardIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/router';
+import ReactMarkdown from 'react-markdown';
 import { 
   collection, 
   addDoc, 
@@ -46,7 +46,6 @@ import { db } from '@/firebase/firebase.config';
 import { ExternalLinkIcon } from '@chakra-ui/icons';
 import { SendIcon } from '@chakra-ui/icons';
 
-
 const TalkToCoordinate = () => {
   const { user } = useSelector((state) => state.userReducer);
   const { place, coordinates } = useSelector((state) => state.placeReducer);
@@ -60,12 +59,7 @@ const TalkToCoordinate = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
-  // Auto-create conversation when component loads
-  useEffect(() => {
-    if (user?.uid && !currentConversationId) {
-      createNewConversation();
-    }
-  }, [user?.uid, currentConversationId]);
+  // Note: Removed auto-creation of conversations - they're now created only when first message is sent
 
   // Handle query parameter and automatically send message
   useEffect(() => {
@@ -97,6 +91,9 @@ const TalkToCoordinate = () => {
       const convos = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
+        // Keep the original timestamp for sorting
+        lastMessageTimeRaw: doc.data().lastMessageTime?.toDate(),
+        // Format for display
         lastMessageTime: doc.data().lastMessageTime?.toDate().toLocaleString([], { 
           month: 'short', 
           day: 'numeric',
@@ -104,10 +101,12 @@ const TalkToCoordinate = () => {
           minute: '2-digit' 
         }),
       }))
-      // Sort locally instead of in the query
+      // Filter out conversations with no messages (messageCount = 0)
+      .filter(convo => convo.messageCount > 0)
+      // Sort by the raw timestamp instead of the formatted string
       .sort((a, b) => {
-        if (a.lastMessageTime && b.lastMessageTime) {
-          return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
+        if (a.lastMessageTimeRaw && b.lastMessageTimeRaw) {
+          return b.lastMessageTimeRaw - a.lastMessageTimeRaw;
         }
         return 0;
       });
@@ -144,11 +143,11 @@ const TalkToCoordinate = () => {
     return () => unsubscribe();
   }, [currentConversationId]);
 
-  const createNewConversation = async () => {
+  const createNewConversation = async (firstMessage, messageTitle) => {
     try {
       const newConversation = {
         userId: user.uid,
-        title: 'New Chat',
+        title: messageTitle || 'New Chat',
         createdAt: serverTimestamp(),
         lastMessageTime: serverTimestamp(),
         messageCount: 0,
@@ -156,19 +155,9 @@ const TalkToCoordinate = () => {
 
       const docRef = await addDoc(collection(db, 'conversations'), newConversation);
       setCurrentConversationId(docRef.id);
-      setChatHistory([]);
-      setConversationTitle(''); // Reset title for new conversation
-      onClose();
+      setConversationTitle(messageTitle || '');
       
-      // Don't show toast for auto-created conversations
-      if (chatHistory.length > 0) {
-        toast({
-          title: 'New conversation started!',
-          status: 'success',
-          duration: 2000,
-          isClosable: true,
-        });
-      }
+      return docRef.id;
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast({
@@ -178,28 +167,59 @@ const TalkToCoordinate = () => {
         duration: 5000,
         isClosable: true,
       });
+      throw error;
     }
   };
 
-  // Function to generate conversation title from first message
-  const generateConversationTitle = (message) => {
-    if (message.length > 50) {
-      return message.substring(0, 50) + '...';
+  // Start a new conversation locally (without saving to Firebase yet)
+  const startNewConversation = () => {
+    setCurrentConversationId(null);
+    setChatHistory([]);
+    setConversationTitle('');
+    onClose();
+  };
+
+  // Function to generate conversation title using Gemini AI
+  const generateConversationTitle = async (message) => {
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/solo/generate-title', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message,
+          max_length: 100
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.data && result.data.title) {
+        return result.data.title;
+      } else {
+        // Fallback to simple truncation
+        return message.length > 100 ? message.substring(0, 97) + '...' : message;
+      }
+    } catch (error) {
+      console.error('Error generating title:', error);
+      // Fallback to simple truncation
+      return message.length > 100 ? message.substring(0, 97) + '...' : message;
     }
-    return message;
   };
 
   // Function to handle example button clicks - send directly to backend
   const handleExampleClick = async (exampleText) => {
-    // Ensure conversation exists
+    // Create conversation only when first message is sent
     if (!currentConversationId) {
-      await createNewConversation();
-      return;
+      const title = await generateConversationTitle(exampleText);
+      const conversationId = await createNewConversation(exampleText, title);
+      setCurrentConversationId(conversationId);
     }
 
     // Set conversation title if this is the first message
     if (chatHistory.length === 0) {
-      const title = generateConversationTitle(exampleText);
+      const title = await generateConversationTitle(exampleText);
       setConversationTitle(title);
     }
 
@@ -211,15 +231,12 @@ const TalkToCoordinate = () => {
       userId: user.uid
     };
 
-    // Add user message to database and local state immediately
+    // Add user message to database only - Firebase listener will update local state
     try {
       await addDoc(collection(db, 'messages'), {
         ...userMessage,
         timestamp: serverTimestamp(),
       });
-      
-      // Also add to local state for immediate display
-      setChatHistory(prev => [...prev, userMessage]);
     } catch (error) {
       console.error('Error saving user message:', error);
       return; // Stop if user message fails to save
@@ -247,16 +264,13 @@ const TalkToCoordinate = () => {
       });
 
       // Update conversation with last message time and title
-      // Use the actual count of messages we just added
+      // Use the actual count of messages we just added (Firebase listener will have the updated count)
       const newMessageCount = chatHistory.length + 2; // +2 for user + AI message
       await updateDoc(doc(db, 'conversations', currentConversationId), {
         lastMessageTime: serverTimestamp(),
         messageCount: newMessageCount,
-        title: conversationTitle || generateConversationTitle(exampleText)
+        title: conversationTitle || await generateConversationTitle(exampleText)
       });
-      
-      // Add AI message to local state for immediate display
-      setChatHistory(prev => [...prev, aiMessage]);
       
       console.log('Successfully saved conversation with', newMessageCount, 'messages');
       
@@ -289,15 +303,16 @@ const TalkToCoordinate = () => {
     const messageToSend = messageContent || query;
     if (!messageToSend.trim()) return;
 
-    // Ensure conversation exists
+    // Create conversation only when first message is sent
     if (!currentConversationId) {
-      await createNewConversation();
-      return;
+      const title = await generateConversationTitle(messageToSend);
+      const conversationId = await createNewConversation(messageToSend, title);
+      setCurrentConversationId(conversationId);
     }
 
     // Set conversation title if this is the first message
     if (chatHistory.length === 0) {
-      const title = generateConversationTitle(messageToSend);
+      const title = await generateConversationTitle(messageToSend);
       setConversationTitle(title);
     }
 
@@ -309,15 +324,12 @@ const TalkToCoordinate = () => {
       userId: user.uid
     };
 
-    // Add user message to database and local state immediately
+    // Add user message to database only - Firebase listener will update local state
     try {
       await addDoc(collection(db, 'messages'), {
         ...userMessage,
         timestamp: serverTimestamp(),
       });
-      
-      // Also add to local state for immediate display
-      setChatHistory(prev => [...prev, userMessage]);
     } catch (error) {
       console.error('Error saving user message:', error);
       return; // Stop if user message fails to save
@@ -338,23 +350,20 @@ const TalkToCoordinate = () => {
         userId: user.uid
       };
 
-      // Add AI message to database
+      // Add AI message to database only - Firebase listener will update local state
       await addDoc(collection(db, 'messages'), {
         ...aiMessage,
         timestamp: serverTimestamp(),
       });
 
       // Update conversation with last message time and title
-      // Use the actual count of messages we just added
+      // Use the actual count of messages we just added (Firebase listener will have the updated count)
       const newMessageCount = chatHistory.length + 2; // +2 for user + AI message
       await updateDoc(doc(db, 'conversations', currentConversationId), {
         lastMessageTime: serverTimestamp(),
         messageCount: newMessageCount,
-        title: conversationTitle || generateConversationTitle(messageToSend)
+        title: conversationTitle || await generateConversationTitle(messageToSend)
       });
-      
-      // Add AI message to local state for immediate display
-      setChatHistory(prev => [...prev, aiMessage]);
       
       console.log('Successfully saved conversation with', newMessageCount, 'messages');
       
@@ -382,8 +391,6 @@ const TalkToCoordinate = () => {
       setQuery('');
     }
   };
-
-
 
   const generateAIResponse = async (userQuery) => {
     try {
@@ -415,53 +422,16 @@ const TalkToCoordinate = () => {
         let mainRecommendation = "AI recommendation generated successfully";
         let places = [];
         
-        // Check for new JSON format first
-        if (result.data?.final_recommendation && result.data?.places) {
-          console.log('Found new JSON format with final_recommendation and places');
-          mainRecommendation = result.data.final_recommendation;
-          places = result.data.places;
-        }
-        // Check if we have the structured JSON response from the new format
-        else if (result.data?.recommendations) {
+        // Check if recommendations exist and have the expected structure
+        if (result.data?.recommendations) {
           console.log('Found recommendations field:', result.data.recommendations);
           
-          // Try to parse as JSON first (new format)
-          if (typeof result.data.recommendations === 'string') {
-            try {
-              // First, try to extract JSON from the string if it contains ```json blocks
-              let jsonString = result.data.recommendations;
-              
-              // Check if the string contains a JSON code block
-              const jsonMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
-              if (jsonMatch) {
-                jsonString = jsonMatch[1].trim();
-                console.log('Extracted JSON from code block');
-              }
-              
-              const parsedRecommendations = JSON.parse(jsonString);
-              if (parsedRecommendations.final_recommendation && parsedRecommendations.places !== undefined) {
-                console.log('Parsed new JSON format from string');
-                mainRecommendation = parsedRecommendations.final_recommendation;
-                places = parsedRecommendations.places || [];
-              } else {
-                mainRecommendation = result.data.recommendations;
-              }
-            } catch (e) {
-              console.log('JSON parsing failed:', e);
-              // If not JSON, use as plain text
-              mainRecommendation = result.data.recommendations;
-              console.log('Using recommendations as plain string');
-            }
-          }
-          // Handle object format (new JSON structure)
-          else if (result.data.recommendations.final_recommendation) {
-            console.log('Found new format with final_recommendation');
-            mainRecommendation = result.data.recommendations.final_recommendation;
-            places = result.data.recommendations.places || [];
-          }
-          // Fallback to old format handling
-          else if (result.data.recommendations.tasks_output) {
-            console.log('Found old tasks_output format');
+          // Try to extract from different possible structures
+          if (result.data.recommendations.raw) {
+            mainRecommendation = result.data.recommendations.raw;
+            console.log('Using raw field from recommendations');
+          } else if (result.data.recommendations.tasks_output) {
+            console.log('Found tasks_output in recommendations');
             
             // Look for the recommendation task output
             const recommendationTask = result.data.recommendations.tasks_output.find(task => 
@@ -492,6 +462,9 @@ const TalkToCoordinate = () => {
                 console.log('Raw place data:', placeTask.raw);
               }
             }
+          } else if (typeof result.data.recommendations === 'string') {
+            mainRecommendation = result.data.recommendations;
+            console.log('Using recommendations as string');
           } else {
             // Try to find any text content in the recommendations object
             const recData = result.data.recommendations;
@@ -511,32 +484,11 @@ const TalkToCoordinate = () => {
         console.log('Final mainRecommendation:', mainRecommendation);
         console.log('Final places:', places);
 
-        // Extract summary if available  
-        let summary = null;
-        if (result.data?.summary) {
-          summary = result.data.summary;
-        } else if (result.data?.recommendations?.summary) {
-          summary = result.data.recommendations.summary;
-        } else {
-          // Try to extract summary from parsed JSON
-          try {
-            let jsonString = result.data?.recommendations || '';
-            const jsonMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
-            if (jsonMatch) {
-              const parsedData = JSON.parse(jsonMatch[1].trim());
-              summary = parsedData.summary;
-            }
-          } catch (e) {
-            // Ignore parsing errors for summary
-          }
-        }
-
         return {
           recommendations: "Here's what I found for you:",
-          mainText: mainRecommendation, // Keep for backward compatibility
+          mainText: mainRecommendation,
           places: places,
-          summary: summary,
-          tips: "💡 This recommendation is powered by our advanced AI agents that analyze your preferences and local data.",
+          tips: "This recommendation is powered by our advanced AI agents that analyze your preferences and local data.",
           rawData: result.data
         };
       } else {
@@ -585,180 +537,46 @@ const TalkToCoordinate = () => {
     }
   };
 
-  // Function to render markdown-like text
-  const renderMarkdownText = (text) => {
-    if (!text) return null;
-    
-    // First, completely remove ALL asterisks from the entire text
-    const cleanText = text.replace(/\*/g, '');
-    
-    // Split text into lines and process each line
-    const lines = cleanText.split('\n');
-    
-    return lines.map((line, lineIndex) => {
-      // Skip empty lines
-      if (!line.trim()) return <br key={lineIndex} />;
-      
-      // Handle headers (lines starting with ###)
-      if (line.startsWith('###')) {
-        const headerText = line.replace(/^###+\s*/, '');
-        return (
-          <Text key={lineIndex} fontSize="lg" fontWeight="bold" color="#a60629" mt={4} mb={2}>
-            {headerText}
-          </Text>
-        );
-      }
-      
-      // Handle subheaders (lines starting with ####)
-      if (line.startsWith('####')) {
-        const headerText = line.replace(/^####+\s*/, '');
-        return (
-          <Text key={lineIndex} fontSize="md" fontWeight="bold" color="#a60629" mt={3} mb={2}>
-            {headerText}
-          </Text>
-        );
-      }
-      
-      // Handle subheaders (lines starting with ---)
-      if (line.startsWith('---')) {
-        return <Divider key={lineIndex} my={3} />;
-      }
-      
-      // Clean line: format properly
-      let cleanLine = line
-        .replace(/^\s*-\s*/, '• ') // Replace dashes with bullet points
-        .replace(/^\s*•\s*/, '• '); // Ensure proper bullet point format
-      
-      // If line starts with "Rank X:" make it bold and purple
-      if (cleanLine.match(/^Rank \d+:/)) {
-        return (
-          <Text key={lineIndex} fontSize="md" fontWeight="bold" color="#a60629" mt={3} mb={2}>
-            {cleanLine}
-          </Text>
-        );
-      }
-      
-      // If line starts with a bullet point, format it properly
-      if (cleanLine.startsWith('• ')) {
-        return (
-          <Text key={lineIndex} fontSize="sm" color="gray.700" mb={1} ml={4}>
-            {cleanLine}
-          </Text>
-        );
-      }
-      
-      // Regular text
-      return (
-        <Text key={lineIndex} fontSize="sm" color="gray.600" mb={1}>
-          {cleanLine}
-        </Text>
-      );
-    });
-  };
+  // Note: Removed custom renderMarkdownText function - now using ReactMarkdown for proper rendering
 
-  const renderPlaceCard = (place, index) => {
-    // Handle different place data structures
-    const placeId = place.fsq_id || place.id || `place-${index}`;
-    const placeName = place.name || 'Unknown Place';
-    
-    // Handle location formatting
-    let locationText = '';
-    if (place.location?.formatted_address) {
-      locationText = place.location.formatted_address;
-    } else if (place.location?.lat && place.location?.lng) {
-      locationText = `${place.location.lat}, ${place.location.lng}`;
-    } else if (place.address) {
-      locationText = place.address;
-    }
-    
-    // Handle categories
-    const category = place.categories?.[0]?.name || 'General';
-    
-    // Handle rating
-    const rating = place.rating;
-    
-    // Handle price
-    const priceLevel = place.price?.tier || place.price;
-    const priceDisplay = priceLevel ? '$'.repeat(priceLevel) : null;
-    
-    // Handle distance
-    const distance = place.distance;
-    
-    // Create search URL
-    const searchQuery = `${placeName}${locationText ? ' ' + locationText : ''}`;
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
-    
-    return (
-      <Card key={placeId} bg="white" border="1px solid" borderColor="gray.200" shadow="sm" mb={3}>
-        <CardBody>
-          <VStack align="stretch" spacing={3}>
-            <HStack justify="space-between" align="start">
-              <VStack align="start" spacing={1} flex={1}>
-                <Text fontWeight="bold" fontSize="lg" color="#a60629">
-                  {placeName}
-                </Text>
-                
-                {locationText && (
-                  <Text fontSize="sm" color="gray.600">
-                    📍 {locationText}
-                  </Text>
-                )}
-                
-                <HStack spacing={2} wrap="wrap">
-                  {distance && (
-                    <Badge colorScheme="green" variant="subtle">
-                      📏 {distance}m away
-                    </Badge>
-                  )}
-                  
+  const renderPlaceCard = (place) => (
+    <Card key={place.fsq_id} bg="white" border="1px solid" borderColor="gray.200" shadow="sm" mb={3}>
+      <CardBody>
+        <VStack align="stretch" spacing={3}>
+          <HStack justify="space-between" align="start">
+            <VStack align="start" spacing={1}>
+              <Text fontWeight="bold" fontSize="lg" color="purple.600">
+                {place.name}
+              </Text>
+              <Text fontSize="sm" color="gray.600">
+                {place.location.formatted_address}
+              </Text>
+              <HStack spacing={2}>
+                <Badge colorScheme="green" variant="subtle">
+                  {place.distance}m away
+                </Badge>
+                {place.categories?.[0]?.name && (
                   <Badge colorScheme="blue" variant="subtle">
-                    🏷️ {category}
+                    {place.categories[0].name}
                   </Badge>
-                  
-                  {rating && (
-                    <Badge colorScheme="orange" variant="subtle">
-                      ⭐ {rating}
-                    </Badge>
-                  )}
-                  
-                  {priceDisplay && (
-                    <Badge colorScheme="purple" variant="subtle">
-                      💰 {priceDisplay}
-                    </Badge>
-                  )}
-                </HStack>
-                
-                {/* Display tips if available */}
-                {place.tips && place.tips.length > 0 && (
-                  <Box mt={2}>
-                    <Text fontSize="xs" color="gray.500" fontWeight="semibold">💡 Tips:</Text>
-                    {place.tips.slice(0, 2).map((tip, tipIndex) => (
-                      <Text key={tipIndex} fontSize="xs" color="gray.600" fontStyle="italic">
-                        "• {typeof tip === 'string' ? tip : tip.text}"
-                      </Text>
-                    ))}
-                  </Box>
                 )}
-              </VStack>
-              
-              <IconButton
-                as="a"
-                href={searchUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                icon={<ArrowForwardIcon />}
-                bg="#a60629" 
-                color="white" 
-                _hover={{ bg: "#8a0522" }}
-                size="sm"
-                aria-label={`Search ${placeName} on Google`}
-              />
-            </HStack>
-          </VStack>
-        </CardBody>
-      </Card>
-    );
-  };
+              </HStack>
+            </VStack>
+            <IconButton
+              as="a"
+              href={`https://www.google.com/search?q=${encodeURIComponent(place.name + ' ' + place.location.formatted_address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              icon={<ExternalLinkIcon />}
+              colorScheme="purple"
+              size="sm"
+              aria-label={`Search ${place.name} on Google`}
+            />
+          </HStack>
+        </VStack>
+      </CardBody>
+    </Card>
+  );
 
   const renderChatMessage = (message, index) => (
     <Flex
@@ -772,18 +590,18 @@ const TalkToCoordinate = () => {
         minW="200px"
       >
         <Card
-          bg={message.type === 'user' ? '#f5e6e8' : 'white'}
+          bg={message.type === 'user' ? 'purple.100' : 'white'}
           border="1px solid"
-          borderColor={message.type === 'user' ? '#a60629' : 'gray.200'}
+          borderColor={message.type === 'user' ? 'purple.200' : 'gray.200'}
           shadow="md"
         >
                   <CardBody p={6}>
           <HStack spacing={3} mb={3}>
             <Avatar
               size="sm"
-              name={message.type === 'user' ? 'You' : 'Coordinate AI'}
+              name={message.type === 'user' ? (user?.displayName || 'You') : 'Coordinate AI'}
               src={message.type === 'user' ? user?.photoURL : undefined}
-              bg={message.type === 'ai' ? '#a60629' : undefined}
+              bg={message.type === 'ai' ? 'purple.500' : undefined}
             />
             <Text fontSize="sm" color="gray.500">
               {message.timestamp.toLocaleTimeString()}
@@ -794,50 +612,41 @@ const TalkToCoordinate = () => {
               <Text>{message.content}</Text>
             ) : (
               <VStack align="stretch" spacing={4}>
-                {/* Header with recommendations title */}
                 {message.content.recommendations && (
-                  <Text fontWeight="semibold" color="#a60629" fontSize="lg">
+                  <Text fontWeight="semibold" color="purple.600" fontSize="lg">
                     {message.content.recommendations}
                   </Text>
-                )}
-                
-                {/* Summary section for structured responses */}
-                {message.content.summary && (
-                  <Box bg="blue.50" p={3} borderRadius="md" borderLeft="4px solid" borderColor="blue.400">
-                    <Text fontSize="sm" color="blue.800" fontWeight="semibold">
-                      📋 Summary: {message.content.summary}
-                    </Text>
-                  </Box>
                 )}
                 
                 {/* Main recommendation text with markdown rendering */}
                 {message.content.mainText && (
                   <Box>
-                    {renderMarkdownText(message.content.mainText)}
-                  </Box>
-                )}
-                
-                {/* Handle final_recommendation from structured JSON response */}
-                {message.content.final_recommendation && (
-                  <Box>
-                    <Text fontWeight="semibold" color="#a60629" mb={3} fontSize="md">
-                      🤖 AI Recommendation
-                    </Text>
-                    <Box bg="gray.50" p={4} borderRadius="md" borderLeft="4px solid" borderColor="#a60629">
-                      {renderMarkdownText(message.content.final_recommendation)}
-                    </Box>
+                    <ReactMarkdown
+                      components={{
+                        h1: ({children}) => <Text fontSize="2xl" fontWeight="bold" color="purple.700" mt={6} mb={4}>{children}</Text>,
+                        h2: ({children}) => <Text fontSize="xl" fontWeight="bold" color="purple.600" mt={5} mb={3}>{children}</Text>,
+                        h3: ({children}) => <Text fontSize="lg" fontWeight="bold" color="purple.600" mt={4} mb={2}>{children}</Text>,
+                        h4: ({children}) => <Text fontSize="md" fontWeight="bold" color="purple.500" mt={3} mb={2}>{children}</Text>,
+                        p: ({children}) => <Text fontSize="sm" color="gray.700" mb={3} lineHeight="1.6">{children}</Text>,
+                        ul: ({children}) => <Box ml={4} mb={3}>{children}</Box>,
+                        li: ({children}) => <Text fontSize="sm" color="gray.700" mb={1}>• {children}</Text>,
+                        strong: ({children}) => <Text as="span" fontWeight="bold" color="gray.800">{children}</Text>,
+                        em: ({children}) => <Text as="span" fontStyle="italic" color="gray.600">{children}</Text>,
+                        hr: () => <Divider my={4} />,
+                      }}
+                    >
+                      {message.content.mainText}
+                    </ReactMarkdown>
                   </Box>
                 )}
                 
                 {/* Places cards */}
                 {message.content.places && message.content.places.length > 0 && (
                   <Box>
-                    <Text fontWeight="semibold" color="#a60629" mb={3}>
-                      📍 Recommended Places ({message.content.places.length}):
+                    <Text fontWeight="semibold" color="purple.600" mb={3}>
+                      Recommended Places:
                     </Text>
-                    <SimpleGrid columns={[1, 2]} spacing={4}>
-                      {message.content.places.map((place, index) => renderPlaceCard(place, index))}
-                    </SimpleGrid>
+                    {message.content.places.map(renderPlaceCard)}
                   </Box>
                 )}
                 
@@ -845,18 +654,38 @@ const TalkToCoordinate = () => {
                 {message.content.suggestions && (
                   <VStack align="stretch" spacing={2}>
                     {message.content.suggestions.map((suggestion, idx) => (
-                      <Text key={idx} fontSize="sm">
-                        {typeof suggestion === 'string' ? suggestion : JSON.stringify(suggestion)}
-                      </Text>
+                      <Box key={idx}>
+                        {typeof suggestion === 'string' ? (
+                          <ReactMarkdown
+                            components={{
+                              p: ({children}) => <Text fontSize="sm" color="gray.700" mb={2}>{children}</Text>,
+                              strong: ({children}) => <Text as="span" fontWeight="bold">{children}</Text>,
+                              em: ({children}) => <Text as="span" fontStyle="italic">{children}</Text>,
+                            }}
+                          >
+                            {suggestion}
+                          </ReactMarkdown>
+                        ) : (
+                          <Text fontSize="sm">{JSON.stringify(suggestion)}</Text>
+                        )}
+                      </Box>
                     ))}
                   </VStack>
                 )}
                 
                 {message.content.tips && (
                   <Box bg="blue.50" p={3} borderRadius="md" borderLeft="4px solid" borderColor="blue.400">
-                    <Text fontSize="sm" color="blue.800">
-                      💡 {message.content.tips}
-                    </Text>
+                    <ReactMarkdown
+                      components={{
+                        p: ({children}) => <Text fontSize="sm" color="blue.800" mb={1}>{children}</Text>,
+                        strong: ({children}) => <Text as="span" fontWeight="bold" color="blue.900">{children}</Text>,
+                        em: ({children}) => <Text as="span" fontStyle="italic">{children}</Text>,
+                        ul: ({children}) => <Box ml={2}>{children}</Box>,
+                        li: ({children}) => <Text fontSize="sm" color="blue.800" mb={1}>• {children}</Text>,
+                      }}
+                    >
+                      {message.content.tips}
+                    </ReactMarkdown>
                   </Box>
                 )}
                 
@@ -953,7 +782,7 @@ const TalkToCoordinate = () => {
       <Box minH="100vh" bg="gray.50" display="flex" alignItems="center" justifyContent="center">
         <VStack spacing={4}>
           <Text color="gray.500">Please log in to access Coordinate AI</Text>
-          <Button colorScheme="red" onClick={() => window.location.href = '/'}>
+          <Button colorScheme="purple" onClick={() => window.location.href = '/'}>
             Go to Login
           </Button>
         </VStack>
@@ -970,7 +799,7 @@ const TalkToCoordinate = () => {
           <DrawerCloseButton />
           <DrawerHeader borderBottomWidth="1px">
             <HStack spacing={3}>
-              <ChatIcon color="#a60629" />
+              <ChatIcon color="purple.500" />
               <Text>Conversations</Text>
             </HStack>
           </DrawerHeader>
@@ -978,8 +807,8 @@ const TalkToCoordinate = () => {
             <VStack spacing={4} align="stretch">
               <Button
                 leftIcon={<AddIcon />}
-                bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
-                onClick={createNewConversation}
+                colorScheme="purple"
+                onClick={startNewConversation}
                 size="lg"
                 borderRadius="full"
               >
@@ -1015,7 +844,7 @@ const TalkToCoordinate = () => {
                       <IconButton
                         icon={<DeleteIcon />}
                         size="sm"
-                        bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
+                        colorScheme="red"
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation(); // Prevent conversation selection
@@ -1037,7 +866,7 @@ const TalkToCoordinate = () => {
         <IconButton
           icon={<HamburgerIcon />}
           onClick={onOpen}
-                          bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
+          colorScheme="purple"
           borderRadius="full"
           size="lg"
           aria-label="Open conversations"
@@ -1059,13 +888,13 @@ const TalkToCoordinate = () => {
             zIndex={10}
           >
             <Flex justify="space-between" align="center" maxW="1200px" mx="auto">
-              <Text fontSize="md" fontWeight="bold" color="#a60629">
+              <Text fontSize="md" fontWeight="bold" color="purple.600">
                 {conversationTitle}
               </Text>
               <HStack spacing={2}>
                 <Button
                   size="sm"
-                  bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
+                  colorScheme="purple"
                   variant="outline"
                   onClick={clearChatHistory}
                   isDisabled={chatHistory.length === 0}
@@ -1074,9 +903,9 @@ const TalkToCoordinate = () => {
                 </Button>
                 <Button
                   size="sm"
-                  bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
+                  colorScheme="purple"
                   variant="outline"
-                  onClick={createNewConversation}
+                  onClick={startNewConversation}
                 >
                   New Chat
                 </Button>
@@ -1091,8 +920,8 @@ const TalkToCoordinate = () => {
           {chatHistory.length === 0 && (
             <Box textAlign="center" py={8} display="flex" alignItems="center" justifyContent="center" minH="60vh">
               <VStack spacing={4} maxW="800px" mx="auto">
-                <Text fontSize="4xl" fontWeight="bold" color="black" fontFamily="Montserrat, sans-serif">
-                  Hello {user?.displayName || user?.email?.split('@')[0] || 'there'}!
+                <Text fontSize="4xl" fontWeight="bold" color="purple.600" fontFamily="Montserrat, sans-serif">
+                  Hello! I'm Coordinate AI
                 </Text>
                 <Text fontSize="lg" color="gray.600" maxW="600px" textAlign="center" fontFamily="Montserrat, sans-serif">
                   Ask me anything about places, activities, or get personalized recommendations. 
@@ -1106,7 +935,7 @@ const TalkToCoordinate = () => {
                                       <Button 
                     size="md" 
                     variant="outline" 
-                    bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
+                    colorScheme="purple"
                     fontSize="md"
                     fontFamily="Montserrat, sans-serif"
                     onClick={() => handleExampleClick("Find coffee shops near me")}
@@ -1117,7 +946,7 @@ const TalkToCoordinate = () => {
                   <Button 
                     size="md" 
                     variant="outline" 
-                    bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
+                    colorScheme="purple"
                     fontSize="md"
                     fontFamily="Montserrat, sans-serif"
                     onClick={() => handleExampleClick("Best restaurants for date night")}
@@ -1128,7 +957,7 @@ const TalkToCoordinate = () => {
                   <Button 
                     size="md" 
                     variant="outline" 
-                    bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
+                    colorScheme="purple"
                     fontSize="md"
                     fontFamily="Montserrat, sans-serif"
                     onClick={() => handleExampleClick("Quiet places to study with WiFi")}
@@ -1179,15 +1008,15 @@ const TalkToCoordinate = () => {
                 disabled={isLoading}
                 borderRadius="full"
                 border="2px solid"
-                borderColor="#a60629"
+                borderColor="purple.200"
                 fontFamily="Montserrat, sans-serif"
                 fontSize="lg"
-                _focus={{ borderColor: '#a60629', boxShadow: '0 0 0 1px #a60629' }}
+                _focus={{ borderColor: 'purple.500', boxShadow: '0 0 0 1px var(--chakra-colors-purple-500)' }}
                 flex="1"
               />
               <IconButton
                 type="submit"
-                bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}
+                colorScheme="purple"
                 size="lg"
                 aria-label="Send message"
                 icon={<ArrowForwardIcon />}
