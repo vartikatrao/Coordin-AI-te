@@ -195,13 +195,6 @@ const SoloMode = () => {
     }
   }, [router.query.lat, router.query.lon, dispatch]);
 
-  // Generate routine-based recommendations by default when location is available and no mood is selected
-  useEffect(() => {
-    if ((coordinates || place) && !currentMood) {
-      generateRecommendations('routine');
-    }
-  }, [coordinates, place, currentTime.getHours(), currentMood, generateRecommendations]); // Re-run when hour changes or mood changes
-
   const fetchWeatherData = async () => {
     try {
       // This would be replaced with actual weather API call
@@ -269,14 +262,14 @@ const SoloMode = () => {
             message: 'Add a routine to get routine-based recommendations'
           }]);
           setIsLoading(false);
-          return;
-        }
+      return;
+    }
 
         const placesToFind = closestRoutine.places || [closestRoutine.activity];
         query = `Based on the current time (${currentTime.toLocaleTimeString()}), I need ${placesToFind.join(' or ')} near my location for my ${closestRoutine.name} routine.`;
         recommendationType = 'routine';
       }
-
+    
       const response = await fetch('http://localhost:8000/api/v1/solo-page/preferences', {
         method: 'POST',
         headers: {
@@ -321,6 +314,13 @@ const SoloMode = () => {
       setIsLoading(false);
     }
   }, [coordinates, place, currentTime, filters, findClosestRoutine, setRecommendations, setIsLoading]);
+
+  // Generate routine-based recommendations by default when location is available and no mood is selected
+  useEffect(() => {
+    if ((coordinates || place) && !currentMood) {
+      generateRecommendations('routine');
+    }
+  }, [coordinates, place, currentTime.getHours(), currentMood, generateRecommendations]); // Re-run when hour changes or mood changes
 
   const addRoutine = (routine) => {
     setUserRoutines(prev => [...prev, { ...routine, id: Date.now() }]);
@@ -1615,7 +1615,7 @@ const SoloMode = () => {
                           
                           {/* Summary Header */}
                           <Card mb={4} bg={rec.type === 'mood' ? "purple.50" : "blue.50"} border="1px solid" borderColor={rec.type === 'mood' ? "purple.200" : "blue.200"}>
-                            <CardBody>
+                              <CardBody>
                               <HStack justify="space-between">
                                 <VStack align="start" spacing={1}>
                                   <Text fontWeight="semibold" color="#a60629">
@@ -1623,7 +1623,7 @@ const SoloMode = () => {
                                       ? `Based on your ${rec.mood} mood ${moodOptions.find(m => m.mood === rec.mood)?.emoji || ''}` 
                                       : `Perfect for your ${rec.routine?.name} routine ${rec.routine?.icon || '📅'}`
                                     }
-                                  </Text>
+                                    </Text>
                                   <Text fontSize="xs" color="gray.500">
                                     {rec.type === 'mood' 
                                       ? `Activities: ${rec.activities?.join(', ') || 'Various activities'}`
@@ -1633,10 +1633,10 @@ const SoloMode = () => {
                                 </VStack>
                                 <Badge bg="#a60629" color="white">
                                   {locations.length} locations found
-                                </Badge>
-                              </HStack>
-                            </CardBody>
-                          </Card>
+                                  </Badge>
+                                </HStack>
+                              </CardBody>
+                            </Card>
 
 
 
