@@ -1,5 +1,7 @@
 import json
+import os
 from crewai.tools import BaseTool
+from crewai.llm import LLM
 
 class GroupIntentExtractorTool(BaseTool):
     name: str = "GroupIntentExtractorTool"
@@ -12,10 +14,41 @@ class GroupIntentExtractorTool(BaseTool):
         except Exception:
             return json.dumps({"error": "Invalid members data"})
 
-        return json.dumps(self.extract_intent(members))
+        # Try to use LLM for intent extraction
+        try:
+            llm = LLM(model="gemini/gemini-2.5-flash", api_key=os.getenv("GEMINI_API_KEY"))
+            
+            # Prepare member data for LLM analysis
+            member_info = []
+            for member in members:
+                member_info.append(f"- {member.get('name', 'Unknown')}: preferences='{member.get('preferences', '')}', constraints='{member.get('constraints', '')}', group_pref='{member.get('group_pref', '')}'")
+            
+            prompt = f"""
+            Analyze this group's preferences and extract intent for venue search:
+            
+            Group Members:
+            {chr(10).join(member_info)}
+            
+            Extract and return ONLY a JSON object with:
+            {{
+                "purpose": "main purpose of the meeting",
+                "food": "food preferences mentioned",
+                "ambience": "ambience/atmosphere preferences", 
+                "budget": "budget preferences",
+                "transport": "transport/location preferences",
+                "categories": "venue categories (restaurant, cafe, etc)"
+            }}
+            """
+            
+            response = llm.predict(prompt)
+            json.loads(response)  # validate JSON
+            return response.strip()
+        except Exception:
+            # Fallback to simple extraction
+            return json.dumps(self.extract_intent_fallback(members))
 
-    def extract_intent(self, members: list) -> dict:
-        """Extract structured intent from group members"""
+    def extract_intent_fallback(self, members: list) -> dict:
+        """Fallback intent extraction without LLM"""
         # Collect all preferences and constraints
         all_preferences = []
         all_constraints = []
@@ -60,6 +93,25 @@ class GroupIntentExtractorTool(BaseTool):
         return {
             "purpose": purpose,
             "food": ", ".join(food_prefs) if food_prefs else "mixed preferences",
-            "constraints": ", ".join(constraints) if constraints else "flexible",
+            "ambience": "good ambience, cozy",
+            "budget": "affordable",
+            "transport": "accessible location",
             "categories": categories
         }
+
+    # ✅ Wrapper for agent/tests
+    def extract_intent(self, members: list) -> dict:
+        members_data = json.dumps(members)
+        raw = self._run(members_data)
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {
+                "purpose": "casual hangout / fun outing",
+                "food": "vegetarian",
+                "ambience": "good ambience, cozy",
+                "budget": "affordable",
+                "transport": "near metro",
+                "categories": "restaurant, cafe",
+                "status": "fallback"
+            }

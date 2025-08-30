@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import json
 from app.agents.group_agent import create_group_agent
 from app.agents.tools.location_resolver import resolve_location, compute_fair_coordinates
 
@@ -49,8 +50,8 @@ async def main():
     print("\n📍 Resolving locations...")
     resolved = []
     for m in members:
-        coords = resolve_location(m["location"])
-        if not coords[0] or not coords[1]:
+        coords = resolve_location(m["location"])   # ✅ no await
+        if not coords:
             coords = (12.9716, 77.5946)  # fallback Bangalore
         resolved.append({"name": m["name"], "coords": coords})
         print(f"   - {m['name']}: {m['location']} → {coords}")
@@ -63,33 +64,43 @@ async def main():
     agent = create_group_agent()
     result = await agent.coordinate_group_meetup(members, meeting_time=meeting_time)
 
-    print("\n" + "="*60)
-    print("🎉 COORDINATION RESULTS")
-    print("="*60)
-    
-    if result:
-        print(f"📍 Fair coordinates: {result.get('fair_coords')}")
-        print(f"🎯 Intent: {result.get('intent')}")
-        print(f"🏢 Venues found: {len(result.get('venues', []))}")
-        
-        for i, venue in enumerate(result.get('venues', []), 1):
-            print(f"\n🏪 Venue {i}: {venue.get('name', 'Unknown')}")
-            if venue.get('location'):
-                print(f"   📍 Address: {venue['location'].get('formatted_address', 'N/A')}")
-            if venue.get('categories'):
-                print(f"   🏷️  Category: {venue['categories'][0].get('name', 'N/A')}")
-        
-        print(f"\n🛡️ Safety: {result.get('safety')}")
-        
-        personalized = result.get('personalized', [])
-        if personalized:
-            print(f"\n👥 Personalized explanations:")
-            for p in personalized:
-                print(f"   🏪 {p.get('venue', 'Unknown venue')}:")
-                for name, reasons in p.get('why_for_each', {}).items():
-                    print(f"     - {name}: {', '.join(reasons)}")
-    else:
-        print("❌ No results returned from agent")
+    # Step 4: Pretty print results
+    print("\n🎉 Final Recommendations:\n")
+
+    # Intent
+    if "intent" in result:
+        print("Step 2: Extracted Group Intent")
+        print(json.dumps(result["intent"], indent=2))
+        print()
+
+    # Safety
+    if "safety" in result:
+        print("Step 4: Safety Check")
+        print(f"🛡️ Overall safety → {result['safety'].get('safety_level')}")
+        details = result["safety"].get("safety_details", {})
+        print(f"   Emergency services nearby: {details.get('emergency_services')}")
+        print(f"   Open venues nearby: {details.get('open_venues_nearby')}")
+        print(f"   Night time? {details.get('is_night')}")
+        print()
+
+    # Venues
+    venues = result.get("venues", [])
+    if venues:
+        print("Step 5: Recommendations")
+        for idx, v in enumerate(venues, start=1):
+            print(f"{idx}. {v.get('name')}")
+            print(f"   📍 {v.get('address', 'Address N/A')}")
+            print(f"   ⭐ Rating: {v.get('rating', 'N/A')}")
+            print(f"   💲 Price: {v.get('price', 'N/A')}")
+            print(f"   🛡️ Safety: {result['safety'].get('safety_level', 'N/A')}")
+            print("   💡 Why this venue:")
+            for member_reason in result.get("personalized", []):
+                if member_reason["venue"] == v.get("name"):
+                    for member, reasons in member_reason["why_for_each"].items():
+                        print(f"      - {member}: {', '.join(reasons)}")
+            print()
+
+    print("\n✅ Done!\n")
 
 if __name__ == "__main__":
     asyncio.run(main())
