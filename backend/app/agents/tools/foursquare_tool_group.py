@@ -3,6 +3,7 @@ import requests
 import json
 import statistics
 from crewai.tools import BaseTool
+from app.agents.tools.foursquare_tool import create_foursquare_tool, FoursquareSearchParams
 
 class FoursquareGroupTool(BaseTool):
     name: str = "FoursquareGroupTool"
@@ -19,11 +20,6 @@ class FoursquareGroupTool(BaseTool):
         except:
             intent = {}
 
-        categories = intent.get("categories", "restaurant, cafe")
-        query = ", ".join([intent.get("purpose", ""), intent.get("food", ""), 
-                           intent.get("ambience", ""), intent.get("budget", ""), 
-                           intent.get("transport", ""), categories])
-
         # --- compute fair coords ---
         lats, lngs = [], []
         for m in members:
@@ -38,15 +34,18 @@ class FoursquareGroupTool(BaseTool):
             fair_lat = statistics.median(lats)
             fair_lng = statistics.median(lngs)
         else:
-            fair_lat, fair_lng = 12.9716, 77.5946
+            fair_lat, fair_lng = 12.9716, 77.5946  # default Bangalore
+
+        # --- use search_query if provided ---
+        query = intent.get("search_query") or "restaurant, cafe"
 
         url = "https://api.foursquare.com/v3/places/search"
         headers = {"Authorization": os.getenv("FSQ_API_KEY")}
         params = {
             "ll": f"{fair_lat},{fair_lng}",
-            "query": query or "restaurant, cafe",
+            "query": query,
             "radius": 5000,
-            "limit": 3,
+            "limit": 5,
             "fields": "fsq_id,name,categories,location,geocodes,distance,hours,rating,price,timezone"
         }
 
@@ -55,13 +54,29 @@ class FoursquareGroupTool(BaseTool):
             r.raise_for_status()
             venues = r.json().get("results", [])
             if not venues:
-                raise ValueError("No venues found")
-        except Exception:
-            venues = [
-                {"fsq_id": "fallback1", "name": "Mavalli Tiffin Rooms (MTR)", "location": {"formatted_address": "Lalbagh Road, Bangalore"}, "rating": 4.6},
-                {"fsq_id": "fallback2", "name": "Truffles, Indiranagar", "location": {"formatted_address": "100 Feet Road, Indiranagar"}, "rating": 4.4},
-                {"fsq_id": "fallback3", "name": "The Black Pearl, Koramangala", "location": {"formatted_address": "Koramangala 5th Block"}, "rating": 4.2},
-            ]
+                raise ValueError("No venues found at fair coords")
+        except Exception as e:
+            print(f"[Group FSQ] Fair coord search failed: {e}, falling back near first member")
+
+            # fallback: retry search near first member’s coords
+            fallback_lat, fallback_lng = fair_lat, fair_lng
+            if members:
+                try:
+                    loc = members[0].get("location", "")
+                    if loc and "," in loc:
+                        fallback_lat, fallback_lng = map(float, loc.split(","))
+                except:
+                    pass
+
+            fsq_tool = create_foursquare_tool()
+            search_params = FoursquareSearchParams(
+                query=query,
+                ll=f"{fallback_lat},{fallback_lng}",
+                radius=3000,
+                limit=3
+            )
+            result = fsq_tool.search_places(search_params)
+            venues = result.get("results", []) if isinstance(result, dict) else []
 
         return json.dumps({
             "status": "success",
@@ -69,7 +84,6 @@ class FoursquareGroupTool(BaseTool):
             "venues": venues
         })
 
-    # ✅ Wrapper
     def search_venues(self, lat: float, lng: float, intent: dict, meeting_time: str = None) -> list[dict]:
         members = [{"location": f"{lat},{lng}"}]
         raw = self._run(json.dumps(members), json.dumps(intent), meeting_time)
