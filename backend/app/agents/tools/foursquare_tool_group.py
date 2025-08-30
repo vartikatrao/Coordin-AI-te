@@ -3,6 +3,7 @@ import requests
 import json
 import statistics
 from crewai.tools import BaseTool
+from app.agents.tools.foursquare_tool import create_foursquare_tool, FoursquareSearchParams
 
 class FoursquareGroupTool(BaseTool):
     name: str = "FoursquareGroupTool"
@@ -19,11 +20,6 @@ class FoursquareGroupTool(BaseTool):
         except:
             intent = {}
 
-        categories = intent.get("categories", "restaurant, cafe")
-        query = ", ".join([intent.get("purpose", ""), intent.get("food", ""), 
-                           intent.get("ambience", ""), intent.get("budget", ""), 
-                           intent.get("transport", ""), categories])
-
         # --- compute fair coords ---
         lats, lngs = [], []
         for m in members:
@@ -38,15 +34,18 @@ class FoursquareGroupTool(BaseTool):
             fair_lat = statistics.median(lats)
             fair_lng = statistics.median(lngs)
         else:
-            fair_lat, fair_lng = 12.9716, 77.5946
+            fair_lat, fair_lng = 12.9716, 77.5946  # default Bangalore
+
+        # --- use search_query if provided ---
+        query = intent.get("search_query") or "restaurant, cafe"
 
         url = "https://api.foursquare.com/v3/places/search"
         headers = {"Authorization": f"Bearer {os.getenv('FSQ_API_KEY')}"}
         params = {
             "ll": f"{fair_lat},{fair_lng}",
-            "query": query or "restaurant, cafe",
+            "query": query,
             "radius": 5000,
-            "limit": 3,
+            "limit": 5,
             "fields": "fsq_id,name,categories,location,geocodes,distance,hours,rating,price,timezone"
         }
 
@@ -63,46 +62,29 @@ class FoursquareGroupTool(BaseTool):
             r.raise_for_status()
             venues = r.json().get("results", [])
             if not venues:
-                raise ValueError("No venues found")
-        except Exception:
-            # Create different fallback venues based on categories
-            if "library" in query.lower() or "coworking" in query.lower():
-                venues = [
-                    {"fsq_id": "fallback1", "name": "Central Library Bangalore", "location": {"formatted_address": "Cubbon Park, Bangalore"}, "rating": 4.5, "categories": [{"name": "Library"}]},
-                    {"fsq_id": "fallback2", "name": "91springboard Coworking", "location": {"formatted_address": "Koramangala, Bangalore"}, "rating": 4.3, "categories": [{"name": "Coworking Space"}]},
-                    {"fsq_id": "fallback3", "name": "Cafe Coffee Day Work", "location": {"formatted_address": "Indiranagar, Bangalore"}, "rating": 4.1, "categories": [{"name": "Cafe"}]},
-                ]
-            elif "entertainment" in query.lower() or "arcade" in query.lower() or "cinema" in query.lower():
-                venues = [
-                    {"fsq_id": "fallback1", "name": "PVR Cinemas Forum Mall", "location": {"formatted_address": "Forum Mall, Koramangala"}, "rating": 4.4, "categories": [{"name": "Movie Theater"}]},
-                    {"fsq_id": "fallback2", "name": "Timezone Gaming Zone", "location": {"formatted_address": "Phoenix MarketCity, Whitefield"}, "rating": 4.2, "categories": [{"name": "Arcade"}]},
-                    {"fsq_id": "fallback3", "name": "Smaaash Entertainment", "location": {"formatted_address": "UB City Mall, Bangalore"}, "rating": 4.3, "categories": [{"name": "Entertainment"}]},
-                ]
-            elif "shopping" in query.lower() or "mall" in query.lower():
-                venues = [
-                    {"fsq_id": "fallback1", "name": "Forum Mall Koramangala", "location": {"formatted_address": "Koramangala, Bangalore"}, "rating": 4.5, "categories": [{"name": "Shopping Mall"}]},
-                    {"fsq_id": "fallback2", "name": "Brigade Road Shopping", "location": {"formatted_address": "Brigade Road, Bangalore"}, "rating": 4.2, "categories": [{"name": "Shopping Area"}]},
-                    {"fsq_id": "fallback3", "name": "Commercial Street", "location": {"formatted_address": "Commercial Street, Bangalore"}, "rating": 4.1, "categories": [{"name": "Shopping Street"}]},
-                ]
-            elif "gym" in query.lower() or "fitness" in query.lower():
-                venues = [
-                    {"fsq_id": "fallback1", "name": "Gold's Gym Koramangala", "location": {"formatted_address": "Koramangala, Bangalore"}, "rating": 4.3, "categories": [{"name": "Gym"}]},
-                    {"fsq_id": "fallback2", "name": "Fitness First Indiranagar", "location": {"formatted_address": "Indiranagar, Bangalore"}, "rating": 4.2, "categories": [{"name": "Gym"}]},
-                    {"fsq_id": "fallback3", "name": "Cult.fit Center", "location": {"formatted_address": "HSR Layout, Bangalore"}, "rating": 4.4, "categories": [{"name": "Fitness Studio"}]},
-                ]
-            elif "coffee" in query.lower():
-                venues = [
-                    {"fsq_id": "fallback1", "name": "Third Wave Coffee Roasters", "location": {"formatted_address": "Koramangala, Bangalore"}, "rating": 4.5, "categories": [{"name": "Coffee Shop"}]},
-                    {"fsq_id": "fallback2", "name": "Blue Tokai Coffee Roasters", "location": {"formatted_address": "Indiranagar, Bangalore"}, "rating": 4.4, "categories": [{"name": "Coffee Shop"}]},
-                    {"fsq_id": "fallback3", "name": "Starbucks Reserve", "location": {"formatted_address": "UB City Mall, Bangalore"}, "rating": 4.2, "categories": [{"name": "Coffee Shop"}]},
-                ]
-            else:
-                # Default restaurant fallbacks
-                venues = [
-                    {"fsq_id": "fallback1", "name": "Mavalli Tiffin Rooms (MTR)", "location": {"formatted_address": "Lalbagh Road, Bangalore"}, "rating": 4.6, "categories": [{"name": "Restaurant"}]},
-                    {"fsq_id": "fallback2", "name": "Truffles, Indiranagar", "location": {"formatted_address": "100 Feet Road, Indiranagar"}, "rating": 4.4, "categories": [{"name": "Restaurant"}]},
-                    {"fsq_id": "fallback3", "name": "The Black Pearl, Koramangala", "location": {"formatted_address": "Koramangala 5th Block"}, "rating": 4.2, "categories": [{"name": "Restaurant"}]},
-                ]
+                raise ValueError("No venues found at fair coords")
+        except Exception as e:
+            print(f"[Group FSQ] Fair coord search failed: {e}, falling back near first member")
+
+            # fallback: retry search near first member's coords
+            fallback_lat, fallback_lng = fair_lat, fair_lng
+            if members:
+                try:
+                    loc = members[0].get("location", "")
+                    if loc and "," in loc:
+                        fallback_lat, fallback_lng = map(float, loc.split(","))
+                except:
+                    pass
+
+            fsq_tool = create_foursquare_tool()
+            search_params = FoursquareSearchParams(
+                query=query,
+                ll=f"{fallback_lat},{fallback_lng}",
+                radius=3000,
+                limit=3
+            )
+            result = fsq_tool.search_places(search_params)
+            venues = result.get("results", []) if isinstance(result, dict) else []
 
         return json.dumps({
             "status": "success",
@@ -110,7 +92,6 @@ class FoursquareGroupTool(BaseTool):
             "venues": venues
         })
 
-    # ✅ Wrapper
     def search_venues(self, lat: float, lng: float, intent: dict, meeting_time: str = None) -> list[dict]:
         members = [{"location": f"{lat},{lng}"}]
         raw = self._run(json.dumps(members), json.dumps(intent), meeting_time)
