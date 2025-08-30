@@ -71,7 +71,16 @@ const SoloMode = () => {
   
   // State management
   const [currentMood, setCurrentMood] = useState(null);
-  const [userRoutines, setUserRoutines] = useState([]);
+  const [userRoutines, setUserRoutines] = useState(() => {
+    // Load routines from localStorage on initialization
+    try {
+      const savedRoutines = localStorage.getItem('userRoutines');
+      return savedRoutines ? JSON.parse(savedRoutines) : [];
+    } catch (error) {
+      console.error('Error loading routines from localStorage:', error);
+      return [];
+    }
+  });
   const [dailyStreak, setDailyStreak] = useState(0);
   const [monthlyStats, setMonthlyStats] = useState({
     coffeeShops: 0,
@@ -174,6 +183,15 @@ const SoloMode = () => {
     }, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Save routines to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('userRoutines', JSON.stringify(userRoutines));
+    } catch (error) {
+      console.error('Error saving routines to localStorage:', error);
+    }
+  }, [userRoutines]);
 
   // Get weather data
   useEffect(() => {
@@ -365,6 +383,17 @@ const SoloMode = () => {
       description: `${routine.name} scheduled for ${routine.time}`,
       status: 'success',
       duration: 3000,
+      isClosable: true,
+    });
+  };
+
+  const removeRoutine = (routineId) => {
+    setUserRoutines(prev => prev.filter(routine => routine.id !== routineId));
+    
+    toast({
+      title: 'Routine removed!',
+      status: 'info',
+      duration: 2000,
       isClosable: true,
     });
   };
