@@ -95,6 +95,17 @@ const SoloMode = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   
+  // Routine editing/creation state
+  const [editingRoutine, setEditingRoutine] = useState(null);
+  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [customRoutine, setCustomRoutine] = useState({
+    name: '',
+    time: '',
+    activity: '',
+    icon: '📋',
+    places: []
+  });
+  
   // Filter states
   const [filters, setFilters] = useState({
     budget: '',
@@ -375,16 +386,39 @@ const SoloMode = () => {
   }, [currentMood, userRoutines.length, generateRecommendations]);
 
   const addRoutine = (routine) => {
-    setUserRoutines(prev => [...prev, { ...routine, id: Date.now() }]);
-    onRoutineClose();
+    if (editingRoutine) {
+      // Update existing routine
+      setUserRoutines(prev => prev.map(r => 
+        r.id === editingRoutine.id 
+          ? { ...routine, id: editingRoutine.id }
+          : r
+      ));
+      
+      toast({
+        title: 'Routine updated!',
+        description: `${routine.name} updated for ${routine.time}`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } else {
+      // Add new routine
+      setUserRoutines(prev => [...prev, { ...routine, id: Date.now() }]);
+      
+      toast({
+        title: 'Routine added!',
+        description: `${routine.name} scheduled for ${routine.time}`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
     
-    toast({
-      title: 'Routine added!',
-      description: `${routine.name} scheduled for ${routine.time}`,
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
+    // Reset modal state
+    setEditingRoutine(null);
+    setIsCustomMode(false);
+    setCustomRoutine({ name: '', time: '', activity: '', icon: '📋', places: [] });
+    onRoutineClose();
   };
 
   const removeRoutine = (routineId) => {
@@ -396,6 +430,34 @@ const SoloMode = () => {
       duration: 2000,
       isClosable: true,
     });
+  };
+
+  const startEditRoutine = (routine) => {
+    setEditingRoutine(routine);
+    setIsCustomMode(true);
+    setCustomRoutine({
+      name: routine.name,
+      time: routine.time,
+      activity: routine.activity,
+      icon: routine.icon,
+      places: routine.places || []
+    });
+    onRoutineOpen();
+  };
+
+  const handleCustomRoutineSubmit = () => {
+    if (!customRoutine.name || !customRoutine.time) {
+      toast({
+        title: 'Missing information',
+        description: 'Please provide a name and time for your routine',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    addRoutine(customRoutine);
   };
 
   const handleFilterChange = (filterType, value) => {
@@ -562,7 +624,15 @@ const SoloMode = () => {
                     <Text fontWeight="semibold">{routine.name}</Text>
                     <Text fontSize="sm" color="gray.500">{routine.time}</Text>
                   </Box>
-                  <IconButton size="sm" icon={<EditIcon />} variant="ghost" />
+                  <IconButton 
+                    size="sm" 
+                    icon={<EditIcon />} 
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditRoutine(routine);
+                    }}
+                  />
                 </HStack>
               </CardBody>
             </Card>
@@ -1720,28 +1790,105 @@ const SoloMode = () => {
       </Modal>
 
       {/* Routine Creation Modal */}
-      <Modal isOpen={isRoutineOpen} onClose={onRoutineClose} size="lg">
+      <Modal isOpen={isRoutineOpen} onClose={() => {
+        onRoutineClose();
+        setIsCustomMode(false);
+        setEditingRoutine(null);
+        setCustomRoutine({ name: '', time: '', activity: '', icon: '📋', places: [] });
+      }} size="lg">
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Add a New Routine</ModalHeader>
+          <ModalHeader>
+            {editingRoutine ? 'Edit Routine' : isCustomMode ? 'Create Custom Routine' : 'Add a New Routine'}
+          </ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
-            <SimpleGrid columns={[1, 2]} spacing={4}>
-              {routineTemplates.map((routine) => (
-                <Card
-                  key={routine.name}
-                  cursor="pointer"
-                  _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
-                  onClick={() => addRoutine(routine)}
-                >
-                  <CardBody textAlign="center">
-                    <Text fontSize="3xl" mb={2}>{routine.icon}</Text>
-                    <Text fontWeight="semibold">{routine.name}</Text>
-                    <Text fontSize="sm" color="gray.500">{routine.time}</Text>
-                  </CardBody>
-                </Card>
-              ))}
-            </SimpleGrid>
+          <ModalBody pb={6}>
+            {isCustomMode ? (
+              <VStack spacing={4}>
+                <FormControl>
+                  <FormLabel>Routine Name</FormLabel>
+                  <Input
+                    value={customRoutine.name}
+                    onChange={(e) => setCustomRoutine(prev => ({...prev, name: e.target.value}))}
+                    placeholder="e.g., Morning Coffee, Evening Jog"
+                  />
+                </FormControl>
+                
+                <FormControl>
+                  <FormLabel>Time</FormLabel>
+                  <Input
+                    type="time"
+                    value={customRoutine.time}
+                    onChange={(e) => setCustomRoutine(prev => ({...prev, time: e.target.value}))}
+                  />
+                </FormControl>
+                
+                <FormControl>
+                  <FormLabel>Icon (Emoji)</FormLabel>
+                  <Input
+                    value={customRoutine.icon}
+                    onChange={(e) => setCustomRoutine(prev => ({...prev, icon: e.target.value}))}
+                    placeholder="📋"
+                    maxLength="2"
+                  />
+                </FormControl>
+                
+                <FormControl>
+                  <FormLabel>Activity Type</FormLabel>
+                  <Input
+                    value={customRoutine.activity}
+                    onChange={(e) => setCustomRoutine(prev => ({...prev, activity: e.target.value}))}
+                    placeholder="e.g., coffee, exercise, work"
+                  />
+                </FormControl>
+                
+                <HStack spacing={3} w="100%">
+                  <Button flex={1} variant="outline" onClick={() => setIsCustomMode(false)}>
+                    Back to Templates
+                  </Button>
+                  <Button flex={1} bg="#a60629" color="white" _hover={{ bg: "#8a0522" }} onClick={handleCustomRoutineSubmit}>
+                    {editingRoutine ? 'Update Routine' : 'Create Routine'}
+                  </Button>
+                </HStack>
+              </VStack>
+            ) : (
+              <VStack spacing={6}>
+                {/* Quick Templates */}
+                <Box w="100%">
+                  <Text fontWeight="semibold" mb={3}>Quick Templates</Text>
+                  <SimpleGrid columns={[1, 2]} spacing={3}>
+                    {routineTemplates.map((routine) => (
+                      <Card
+                        key={routine.name}
+                        cursor="pointer"
+                        _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                        onClick={() => addRoutine(routine)}
+                      >
+                        <CardBody textAlign="center" py={3}>
+                          <Text fontSize="2xl" mb={1}>{routine.icon}</Text>
+                          <Text fontWeight="semibold" fontSize="sm">{routine.name}</Text>
+                          <Text fontSize="xs" color="gray.500">{routine.time}</Text>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </SimpleGrid>
+                </Box>
+                
+                {/* Custom Option */}
+                <Box w="100%">
+                  <Divider />
+                  <Button 
+                    w="100%" 
+                    mt={4}
+                    variant="outline" 
+                    leftIcon={<AddIcon />}
+                    onClick={() => setIsCustomMode(true)}
+                  >
+                    Create Custom Routine
+                  </Button>
+                </Box>
+              </VStack>
+            )}
           </ModalBody>
         </ModalContent>
       </Modal>
