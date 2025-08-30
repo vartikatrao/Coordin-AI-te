@@ -58,6 +58,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { useRouter } from 'next/router';
 import { setCoordinates } from '@/redux/slices/PlacesSlice';
+import { useCallback } from 'react';
 
 const SoloMode = () => {
   const { user } = useSelector((state) => state.userReducer);
@@ -199,7 +200,7 @@ const SoloMode = () => {
     if ((coordinates || place) && !currentMood) {
       generateRecommendations('routine');
     }
-  }, [coordinates, place, currentTime.getHours(), currentMood]); // Re-run when hour changes or mood changes
+  }, [coordinates, place, currentTime.getHours(), currentMood, generateRecommendations]); // Re-run when hour changes or mood changes
 
   const fetchWeatherData = async () => {
     try {
@@ -231,7 +232,7 @@ const SoloMode = () => {
     });
   };
 
-  const generateRecommendations = async (type = 'routine', moodData = null) => {
+  const generateRecommendations = useCallback(async (type = 'routine', moodData = null) => {
     setIsLoading(true);
     try {
       let query = '';
@@ -319,7 +320,7 @@ const SoloMode = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [coordinates, place, currentTime, filters, findClosestRoutine, setRecommendations, setIsLoading]);
 
   const addRoutine = (routine) => {
     setUserRoutines(prev => [...prev, { ...routine, id: Date.now() }]);
@@ -1559,7 +1560,8 @@ const SoloMode = () => {
                 {/* Unified Recommendations */}
                 {recommendations.length > 0 && (
                   <Box>
-                    {recommendations.map((rec, recIndex) => {
+                    <VStack spacing={6}>
+                      {recommendations.map((rec, recIndex) => {
                       // Handle no-routines case
                       if (rec.type === 'no-routines') {
                         return (
