@@ -211,15 +211,7 @@ const SoloMode = () => {
     setCurrentMood(mood);
     onMoodClose();
     
-    // Auto-generation removed - user must manually click "Get Recommendations" button
-    
-    toast({
-      title: 'Mood captured!',
-      description: `Feeling ${mood.mood}? Use the "Get Recommendations" button to find places.`,
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
+    // Auto-generation and toast notification removed - silent state update only
   };
 
   const findClosestRoutine = () => {
