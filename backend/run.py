@@ -13,6 +13,7 @@ from datetime import datetime
 # Import all routers
 from app.routers import ai_assistant, personalization, safety, location_search
 from app.api.routes import router as solo_router
+from app.api.solo_page.solo_page_routes import router as solo_page_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -34,6 +35,7 @@ app.add_middleware(
 
 # Include all routers
 app.include_router(solo_router, prefix="/api/v1", tags=["solo-mode"])
+app.include_router(solo_page_router, prefix="/api/v1/solo-page", tags=["solo-page"])
 app.include_router(ai_assistant.router, prefix="/api/ai", tags=["ai-assistant"])
 app.include_router(personalization.router, prefix="/api/personalization", tags=["personalization"])
 app.include_router(safety.router, prefix="/api/safety", tags=["safety"])
