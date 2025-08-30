@@ -211,12 +211,11 @@ const SoloMode = () => {
     setCurrentMood(mood);
     onMoodClose();
     
-    // Generate mood-based recommendations (ignore routines)
-    await generateRecommendations('mood', mood);
+    // Auto-generation removed - user must manually click "Get Recommendations" button
     
     toast({
       title: 'Mood captured!',
-      description: `Feeling ${mood.mood}? Let me find the perfect places for you.`,
+      description: `Feeling ${mood.mood}? Use the "Get Recommendations" button to find places.`,
       status: 'success',
       duration: 3000,
       isClosable: true,
@@ -1431,8 +1430,7 @@ const SoloMode = () => {
                           variant="outline" 
                           onClick={() => {
                             setCurrentMood(null);
-                            // Go back to routine-based recommendations
-                            generateRecommendations('routine');
+                            // Auto-generation removed - user must manually click refresh if needed
                           }}
                         >
                           Clear Mood
