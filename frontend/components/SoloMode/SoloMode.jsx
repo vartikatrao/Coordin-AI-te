@@ -337,7 +337,24 @@ const SoloMode = () => {
     }
   }, [coordinates, place, currentTime, filters, findClosestRoutine, setRecommendations, setIsLoading]);
 
-  // Auto-refresh removed - recommendations now only trigger manually via buttons or mood selection
+  // Auto-determine what to show based on current state
+  useEffect(() => {
+    if (currentMood) {
+      // If mood is selected, wait for user to click "Get Recommendations" 
+      return;
+    }
+    
+    if (userRoutines.length === 0) {
+      // No routines - show "add routine" message
+      setRecommendations([{
+        type: 'no-routines',
+        message: 'Add a routine to get routine-based recommendations'
+      }]);
+    } else {
+      // Has routines - show routine-based recommendations automatically
+      generateRecommendations('routine');
+    }
+  }, [currentMood, userRoutines.length, generateRecommendations]);
 
   const addRoutine = (routine) => {
     setUserRoutines(prev => [...prev, { ...routine, id: Date.now() }]);
