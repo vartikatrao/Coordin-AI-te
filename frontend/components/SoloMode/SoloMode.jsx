@@ -686,8 +686,9 @@ const SoloMode = () => {
           name: place.name || 'Unknown Place',
           distance: place.distance ? `${place.distance}m` : 'Near you',
           cuisine: place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant',
-          rating: place.rating || '',
-          priceLevel: place.price ? '€'.repeat(place.price) : '',
+          rating: place.rating ? Number(place.rating).toFixed(1) : '',
+          priceLevel: place.price ? '₹'.repeat(place.price) : '',
+          popularity: place.popularity || '',
           address: place.location ? place.location.formatted_address || place.location.address : '',
           description: `${place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant'} located at ${place.location ? (place.location.formatted_address || place.location.address) : 'your area'}`,
           fsq_place_id: place.fsq_id || '',
@@ -703,7 +704,7 @@ const SoloMode = () => {
           name: place.name || 'Unknown Place',
           distance: place.distance ? `${place.distance}m` : 'Near you',
           cuisine: place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant',
-          rating: place.rating || '',
+          rating: place.rating ? Number(place.rating).toFixed(1) : '',
           priceLevel: place.price || '',
           address: place.location ? place.location.formatted_address : '',
           description: `Located at ${place.location ? place.location.formatted_address : 'your area'}`,
@@ -1254,7 +1255,7 @@ const SoloMode = () => {
                                   {location.rating && (
                                     <HStack spacing={1}>
                                       <Text fontSize="sm" color="orange.500">⭐</Text>
-                                      <Text fontSize="sm" fontWeight="semibold">{location.rating}</Text>
+                                      <Text fontSize="sm" fontWeight="semibold" color="orange.600">{location.rating}/10</Text>
                                     </HStack>
                                   )}
                                 </VStack>
@@ -1278,7 +1279,7 @@ const SoloMode = () => {
                                 {location.rating && (
                                   <HStack>
                                     <Text fontSize="sm" color="gray.500" fontWeight="semibold">Rating:</Text>
-                                    <Text fontSize="sm" color="green.600" fontWeight="medium">{location.rating}</Text>
+                                    <Text fontSize="sm" color="green.600" fontWeight="medium">{location.rating}/10</Text>
                                   </HStack>
                                 )}
                                 {location.priceLevel && (
@@ -1597,7 +1598,7 @@ const SoloMode = () => {
                                             {location.rating && (
                                               <HStack spacing={1}>
                                                 <Text fontSize="sm" color="orange.500">⭐</Text>
-                                                <Text fontSize="sm" fontWeight="semibold">{location.rating}</Text>
+                                                <Text fontSize="sm" fontWeight="semibold" color="orange.600">{location.rating}/10</Text>
                                               </HStack>
                                             )}
                                           </VStack>
@@ -1621,7 +1622,7 @@ const SoloMode = () => {
                                           {location.rating && (
                                             <HStack>
                                               <Text fontSize="sm" color="gray.500" fontWeight="semibold">Rating:</Text>
-                                              <Text fontSize="sm" color="green.600" fontWeight="medium">{location.rating}</Text>
+                                              <Text fontSize="sm" color="green.600" fontWeight="medium">{location.rating}/10</Text>
                                             </HStack>
                                           )}
                                           {location.priceLevel && (
