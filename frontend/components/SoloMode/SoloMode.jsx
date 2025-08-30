@@ -309,6 +309,8 @@ const SoloMode = () => {
           recommendationText = JSON.stringify(responseData, null, 2);
         }
         
+        // Clear proactive recommendations when setting mood-based ones
+        setProactiveRecommendations([]);
         setRecommendations([{
           type: 'mood-based',
           mood: mood.mood,
@@ -468,6 +470,8 @@ const SoloMode = () => {
           recommendationText = JSON.stringify(responseData, null, 2);
         }
         
+        // Clear mood-based recommendations when setting proactive ones
+        setRecommendations([]);
         setProactiveRecommendations([{
           type: 'routine-based',
           routine: closestRoutine,
