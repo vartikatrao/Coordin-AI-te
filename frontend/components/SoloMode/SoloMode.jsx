@@ -194,12 +194,12 @@ const SoloMode = () => {
     }
   }, [router.query.lat, router.query.lon, dispatch]);
 
-  // Generate proactive recommendations when location is available
+  // Generate routine-based recommendations by default when location is available and no mood is selected
   useEffect(() => {
-    if (coordinates || place) {
-      generateProactiveRecommendations();
+    if ((coordinates || place) && !currentMood) {
+      generateRecommendations('routine');
     }
-  }, [coordinates, place, currentTime.getHours()]); // Re-run when hour changes
+  }, [coordinates, place, currentTime.getHours(), currentMood]); // Re-run when hour changes or mood changes
 
   const fetchWeatherData = async () => {
     try {
@@ -219,8 +219,8 @@ const SoloMode = () => {
     setCurrentMood(mood);
     onMoodClose();
     
-    // Generate mood-based recommendations
-    await generateMoodBasedRecommendations(mood);
+    // Generate mood-based recommendations (ignore routines)
+    await generateRecommendations('mood', mood);
     
     toast({
       title: 'Mood captured!',
@@ -231,26 +231,49 @@ const SoloMode = () => {
     });
   };
 
-  const generateMoodBasedRecommendations = async (mood) => {
+  const generateRecommendations = async (type = 'routine', moodData = null) => {
     setIsLoading(true);
     try {
-      // Build filter string for the query
-      let filterString = '';
-      if (filters.budget) {
-        const budgetLabel = budgetOptions.find(b => b.value === filters.budget)?.label || '';
-        filterString += ` Budget: ${budgetLabel}.`;
-      }
-      if (filters.timePreference) {
-        filterString += ` Time preference: ${filters.timePreference}.`;
-      }
-      if (filters.atmosphere) {
-        filterString += ` Atmosphere: ${filters.atmosphere}.`;
-      }
-      if (filters.features.length > 0) {
-        filterString += ` Required features: ${filters.features.join(', ')}.`;
-      }
-      if (filters.radius !== 2000) {
-        filterString += ` Search within ${filters.radius}m radius.`;
+      let query = '';
+      let recommendationType = type;
+      
+      if (type === 'mood' && moodData) {
+        // Mood-based recommendations - ignore routines, use only mood and filters
+        let filterString = '';
+        if (filters.budget) {
+          const budgetLabel = budgetOptions.find(b => b.value === filters.budget)?.label || '';
+          filterString += ` Budget: ${budgetLabel}.`;
+        }
+        if (filters.timePreference) {
+          filterString += ` Time preference: ${filters.timePreference}.`;
+        }
+        if (filters.atmosphere) {
+          filterString += ` Atmosphere: ${filters.atmosphere}.`;
+        }
+        if (filters.features.length > 0) {
+          filterString += ` Required features: ${filters.features.join(', ')}.`;
+        }
+        if (filters.radius !== 2000) {
+          filterString += ` Search within ${filters.radius}m radius.`;
+        }
+
+        query = `I'm feeling ${moodData.mood}. Find me ${moodData.activities.join(', ')} near my location. Consider the current time (${currentTime.toLocaleTimeString()}) and my mood.${filterString}`;
+      } else {
+        // Routine-based recommendations - use nearest routine
+        const closestRoutine = findClosestRoutine();
+        if (!closestRoutine) {
+          // No routines available
+          setRecommendations([{
+            type: 'no-routines',
+            message: 'Add a routine to get routine-based recommendations'
+          }]);
+          setIsLoading(false);
+          return;
+        }
+
+        const placesToFind = closestRoutine.places || [closestRoutine.activity];
+        query = `Based on the current time (${currentTime.toLocaleTimeString()}), I need ${placesToFind.join(' or ')} near my location for my ${closestRoutine.name} routine.`;
+        recommendationType = 'routine';
       }
 
       const response = await fetch('http://localhost:8000/api/v1/solo-page/preferences', {
@@ -259,7 +282,7 @@ const SoloMode = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: `I'm feeling ${mood.mood}. Find me ${mood.activities.join(', ')} near my location. Consider the current time (${currentTime.toLocaleTimeString()}) and my mood.${filterString}`,
+          query: query,
           user_location: coordinates ? `${coordinates.lat},${coordinates.lon}` : (place || "12.9716,77.5946"),
           context: {
             budget: filters.budget,
@@ -281,45 +304,18 @@ const SoloMode = () => {
       const result = await response.json();
       
       if (result.status === 'success') {
-        // Log the response structure for debugging
-        console.log('API Response structure:', result.data);
-        
-        // Store the complete data for parsing locations
         const responseData = result.data;
         
-        // Extract the final recommendation text
-        let recommendationText = 'No recommendations available';
-        
-        if (responseData?.final_recommendation) {
-          recommendationText = responseData.final_recommendation;
-        } else if (responseData?.response) {
-          recommendationText = responseData.response;
-        } else if (typeof responseData === 'string') {
-          recommendationText = responseData;
-        } else if (responseData?.raw && typeof responseData.raw === 'string') {
-          recommendationText = responseData.raw;
-        } else if (responseData?.pydantic && typeof responseData.pydantic === 'string') {
-          recommendationText = responseData.pydantic;
-        } else if (responseData?.json_dict?.recommendations) {
-          recommendationText = responseData.json_dict.recommendations;
-        } else if (responseData?.tasks_output && typeof responseData.tasks_output === 'string') {
-          recommendationText = responseData.tasks_output;
-        } else if (responseData) {
-          // Last resort: try to extract meaningful text from the object
-          recommendationText = JSON.stringify(responseData, null, 2);
-        }
-        
-        // Clear proactive recommendations when setting mood-based ones
-        setProactiveRecommendations([]);
         setRecommendations([{
-          type: 'mood-based',
-          mood: mood.mood,
-          activities: mood.activities,
-          suggestions: responseData  // Pass the complete data for parsing
+          type: recommendationType,
+          mood: moodData?.mood,
+          activities: moodData?.activities,
+          routine: type === 'routine' ? findClosestRoutine() : null,
+          suggestions: responseData
         }]);
       }
     } catch (error) {
-      console.error('Error generating mood-based recommendations:', error);
+      console.error('Error generating recommendations:', error);
     } finally {
       setIsLoading(false);
     }
@@ -1534,9 +1530,22 @@ const SoloMode = () => {
                   <Flex justify="space-between" align="center" mb={4}>
                     <Heading size="md" color="#a60629">How are you feeling today?</Heading>
                     {currentMood && (
-                      <Badge bg="#a60629" color="white" fontSize="md" p={2}>
-                        {currentMood.emoji} {currentMood.mood}
-                      </Badge>
+                      <HStack spacing={2}>
+                        <Badge bg="#a60629" color="white" fontSize="md" p={2}>
+                          {currentMood.emoji} {currentMood.mood}
+                        </Badge>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => {
+                            setCurrentMood(null);
+                            // Go back to routine-based recommendations
+                            generateRecommendations('routine');
+                          }}
+                        >
+                          Clear Mood
+                        </Button>
+                      </HStack>
                     )}
                   </Flex>
                   {renderMoodCards()}
@@ -1547,37 +1556,85 @@ const SoloMode = () => {
                   )}
                 </Box>
 
-                {/* Proactive Recommendations - only show if user has added routines */}
-                {userRoutines.length > 0 && renderProactiveRecommendations()}
-
-                {/* Recommendations */}
+                {/* Unified Recommendations */}
                 {recommendations.length > 0 && (
                   <Box>
-                    <Heading size="md" mb={4} color="#a60629">Personalized Recommendations</Heading>
-                    <VStack spacing={6}>
-                      {recommendations.map((rec, recIndex) => {
-                        const locations = parseLocationRecommendations(rec.suggestions || {});
-                        
+                    {recommendations.map((rec, recIndex) => {
+                      // Handle no-routines case
+                      if (rec.type === 'no-routines') {
                         return (
-                          <Box key={recIndex} w="100%">
-                            {/* Summary Header */}
-                            <Card mb={4} bg="purple.50" border="1px solid" borderColor="purple.200">
-                              <CardBody>
-                                <HStack justify="space-between">
-                                  <VStack align="start" spacing={1}>
-                                    <Text fontWeight="semibold" color="#a60629">
-                                      {rec.type === 'mood-based' ? `Based on your ${rec.mood} mood ${moodOptions.find(m => m.mood === rec.mood)?.emoji || ''}` : rec.type}
-                                    </Text>
-                                    <Text fontSize="xs" color="gray.500">
-                                      Activities: {rec.activities.join(', ')}
-                                    </Text>
-                                  </VStack>
-                                  <Badge bg="#a60629" color="white">
-                                    {locations.length} locations found
-                                  </Badge>
-                                </HStack>
+                          <Box key={recIndex} mb={6}>
+                            <Heading size="md" mb={4} color="#a60629">Routine-based Recommendations</Heading>
+                            <Card bg="gray.50" border="2px dashed" borderColor="gray.300">
+                              <CardBody textAlign="center" py={8}>
+                                <Text fontSize="3xl" mb={3}>📅</Text>
+                                <Text color="gray.500" mb={2}>{rec.message}</Text>
+                                <Text fontSize="sm" color="gray.400" mb={4}>
+                                  Set up your daily routines to get personalized recommendations based on your schedule
+                                </Text>
+                                <Button 
+                                  bg="#a60629" 
+                                  color="white" 
+                                  _hover={{ bg: "#8a0522" }}
+                                  onClick={onRoutineOpen}
+                                  size="sm"
+                                >
+                                  Add Your First Routine
+                                </Button>
                               </CardBody>
                             </Card>
+                          </Box>
+                        );
+                      }
+
+                      const locations = parseLocationRecommendations(rec.suggestions || {});
+                      
+                      return (
+                        <Box key={recIndex} w="100%">
+                          {/* Dynamic Header based on recommendation type */}
+                          <Flex justify="space-between" align="center" mb={4}>
+                            <Heading size="md" color="#a60629">
+                              {rec.type === 'mood' ? 'Mood-based Recommendations' : 'Routine-based Recommendations'}
+                            </Heading>
+                            {rec.type === 'routine' && (
+                              <Button 
+                                size="sm" 
+                                bg="#a60629" 
+                                color="white" 
+                                _hover={{ bg: "#8a0522" }}
+                                onClick={() => generateRecommendations('routine')}
+                                isLoading={isLoading}
+                                loadingText="Refreshing"
+                              >
+                                Refresh
+                              </Button>
+                            )}
+                          </Flex>
+                          
+                          {/* Summary Header */}
+                          <Card mb={4} bg={rec.type === 'mood' ? "purple.50" : "blue.50"} border="1px solid" borderColor={rec.type === 'mood' ? "purple.200" : "blue.200"}>
+                            <CardBody>
+                              <HStack justify="space-between">
+                                <VStack align="start" spacing={1}>
+                                  <Text fontWeight="semibold" color="#a60629">
+                                    {rec.type === 'mood' 
+                                      ? `Based on your ${rec.mood} mood ${moodOptions.find(m => m.mood === rec.mood)?.emoji || ''}` 
+                                      : `Perfect for your ${rec.routine?.name} routine ${rec.routine?.icon || '📅'}`
+                                    }
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.500">
+                                    {rec.type === 'mood' 
+                                      ? `Activities: ${rec.activities?.join(', ') || 'Various activities'}`
+                                      : `Scheduled for ${rec.routine?.time || 'now'} • ${rec.routine?.activity || 'routine activity'}`
+                                    }
+                                  </Text>
+                                </VStack>
+                                <Badge bg="#a60629" color="white">
+                                  {locations.length} locations found
+                                </Badge>
+                              </HStack>
+                            </CardBody>
+                          </Card>
 
 
 
