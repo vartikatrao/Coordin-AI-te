@@ -346,12 +346,7 @@ const SoloMode = () => {
     }
   }, [coordinates, place, currentTime, filters, findClosestRoutine, setRecommendations, setIsLoading]);
 
-  // Generate routine-based recommendations by default when location is available and no mood is selected
-  useEffect(() => {
-    if ((coordinates || place) && !currentMood) {
-      generateRecommendations('routine');
-    }
-  }, [coordinates, place, currentTime.getHours(), currentMood, generateRecommendations]); // Re-run when hour changes or mood changes
+  // Auto-refresh removed - recommendations now only trigger manually via buttons or mood selection
 
   const addRoutine = (routine) => {
     setUserRoutines(prev => [...prev, { ...routine, id: Date.now() }]);
