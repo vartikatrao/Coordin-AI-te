@@ -1,15 +1,18 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 import asyncio
 from datetime import datetime
 
 from ..agents.solo_agent import create_solo_agent
-from ..agents.group_agent import create_group_agent
+from ..agents.group_agent import create_group_agent, GroupCoordinationAgent  # Import both the factory and the class if needed
 from ..agents.tools.preference_learning import create_preference_learning_system
 
-# Create router
-router = APIRouter()
+# Solo Router
+solo_router = APIRouter(prefix="/solo", tags=["solo"])
+
+# Group Router
+group_router = APIRouter(prefix="/group", tags=["group"])
 
 # Global agent instances (initialized once)
 solo_agent = None
@@ -74,7 +77,7 @@ def get_preference_system():
 
 
 # SOLO MODE ENDPOINTS
-@router.get("/", response_model=APIResponse)
+@solo_router.get("/", response_model=APIResponse)
 async def health_check():
     """Health check endpoint"""
     return APIResponse(
@@ -92,7 +95,7 @@ async def health_check():
         timestamp=datetime.now().isoformat()
     )
 
-@router.post("/query", response_model=APIResponse)
+@solo_router.post("/query", response_model=APIResponse)
 async def process_solo_query(request: QueryRequest):
     """
     Process a natural language query in solo mode
@@ -152,12 +155,10 @@ async def process_solo_query(request: QueryRequest):
             processing_time=processing_time
         )
 
-@router.post("/place-details", response_model=APIResponse)
+@solo_router.post("/place-details", response_model=APIResponse)
 async def get_place_details(request: PlaceDetailsRequest):
     """
     Get detailed information about a specific place
-    
-    Retrieve comprehensive details about a place using its Foursquare ID
     """
     start_time = datetime.now()
     
@@ -175,8 +176,48 @@ async def get_place_details(request: PlaceDetailsRequest):
         end_time = datetime.now()
         processing_time = (end_time - start_time).total_seconds()
         
-        # Format response
-        if result.get("status") == "success" or "place_details" in result:
+        return APIResponse(
+            status="success",
+            data=result,
+            timestamp=datetime.now().isoformat(),
+            processing_time=processing_time
+        )
+        
+    except Exception as e:
+        end_time = datetime.now()
+        processing_time = (end_time - start_time).total_seconds()
+        
+        return APIResponse(
+            status="error",
+            error=str(e),
+            timestamp=datetime.now().isoformat(),
+            processing_time=processing_time
+        )
+
+# GROUP MODE ENDPOINTS
+@group_router.post("/coordinate", response_model=APIResponse)
+async def coordinate_group_meetup(request: GroupCoordinationRequest):
+    """
+    Coordinate a group meetup in comprehensive mode
+    """
+    start_time = datetime.now()
+    
+    try:
+        # Get group agent
+        agent = get_group_agent()
+        
+        # Process coordination
+        result = await asyncio.to_thread(
+            agent.coordinate_group_meetup,
+            request.members,
+            request.meeting_purpose,
+            quick_mode=request.quick_mode
+        )
+        
+        end_time = datetime.now()
+        processing_time = (end_time - start_time).total_seconds()
+        
+        if result.get("status") == "success":
             return APIResponse(
                 status="success",
                 data=result,
@@ -185,8 +226,8 @@ async def get_place_details(request: PlaceDetailsRequest):
             )
         else:
             return APIResponse(
-                status="error", 
-                error=result.get("error", "Failed to retrieve place details"),
+                status="error",
+                error=result.get("error", "Unknown error occurred"),
                 timestamp=datetime.now().isoformat(),
                 processing_time=processing_time
             )
@@ -202,143 +243,38 @@ async def get_place_details(request: PlaceDetailsRequest):
             processing_time=processing_time
         )
 
-
-# GROUP MODE ENDPOINTS
-@router.post("/coordinate", response_model=APIResponse)
-async def coordinate_group_meetup(request: GroupCoordinationRequest):
+@group_router.post("/quick-coordinate", response_model=APIResponse)
+async def quick_coordinate_group_meetup(request: GroupCoordinationRequest):
     """
-    Coordinate meetup for a group of people
-    
-    This endpoint:
-    1. Analyzes group member locations and preferences
-    2. Calculates optimal meeting points
-    3. Searches for suitable venues using Foursquare API
-    4. Performs safety assessment
-    5. Provides personalized explanations for each member
-    6. Returns top 3 venue recommendations
+    Coordinate a group meetup in quick mode
     """
-    start_time = datetime.now()
-    
-    try:
-        # Validate group size
-        if len(request.members) < 2:
-            raise HTTPException(status_code=400, detail="At least 2 group members required")
-        
-        if len(request.members) > 10:
-            raise HTTPException(status_code=400, detail="Maximum 10 group members supported")
-        
-        # Validate member data
-        for i, member in enumerate(request.members):
-            if not member.location or ',' not in member.location:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Invalid location format for member {member.name}. Use 'lat,lng' format."
-                )
-            
-            try:
-                lat, lng = map(float, member.location.split(','))
-                if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
-                    raise ValueError
-            except ValueError:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid coordinates for member {member.name}"
-                )
-        
-        # Get group agent
-        agent = get_group_agent()
-        
-        # Convert members to dictionary format
-        members_data = []
-        for member in request.members:
-            members_data.append({
-                "name": member.name,
-                "age": member.age,
-                "gender": member.gender,
-                "location": member.location,
-                "preferences": member.preferences,
-                "constraints": member.constraints
-            })
-        
-        # Process group coordination
-        result = await asyncio.to_thread(
-            agent.coordinate_group_meetup,
-            members_data,
-            request.meeting_purpose,
-            request.quick_mode
-        )
-        
-        end_time = datetime.now()
-        processing_time = (end_time - start_time).total_seconds()
-        
-        return APIResponse(
-            status=result.get("status", "success"),
-            data=result,
-            timestamp=datetime.now().isoformat(),
-            processing_time=processing_time
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        end_time = datetime.now()
-        processing_time = (end_time - start_time).total_seconds()
-        
-        return APIResponse(
-            status="error",
-            error=str(e),
-            timestamp=datetime.now().isoformat(),
-            processing_time=processing_time
-        )
-
-@router.post("/quick-coordinate", response_model=APIResponse)
-async def quick_coordinate_group(request: GroupCoordinationRequest):
-    """
-    Quick coordination mode for faster group meetup planning
-    
-    Simplified workflow optimized for speed while maintaining recommendation quality
-    """
-    # Set quick_mode to True and delegate to main coordinate endpoint
     request.quick_mode = True
     return await coordinate_group_meetup(request)
 
-@router.post("/analyze-preferences", response_model=APIResponse)
+@group_router.post("/analyze-preferences", response_model=APIResponse)
 async def analyze_group_preferences(request: GroupCoordinationRequest):
     """
-    Analyze group member preferences and compatibility
-    
-    Provides insights into group dynamics, common preferences, and potential conflicts
+    Analyze group preferences without full coordination
     """
     start_time = datetime.now()
     
     try:
         # Get group agent
         agent = get_group_agent()
-        
-        # Convert members to dictionary format
-        members_data = []
-        for member in request.members:
-            members_data.append({
-                "name": member.name,
-                "age": member.age,
-                "gender": member.gender,
-                "location": member.location,
-                "preferences": member.preferences,
-                "constraints": member.constraints
-            })
         
         # Analyze preferences
         result = await asyncio.to_thread(
             agent.analyze_group_preferences,
-            members_data
+            request.members
         )
         
         end_time = datetime.now()
         processing_time = (end_time - start_time).total_seconds()
         
         return APIResponse(
-            status=result.get("status", "success"),
-            data=result,
+            status=result.get("status", "error"),
+            data=result.get("analysis"),
+            error=result.get("error"),
             timestamp=datetime.now().isoformat(),
             processing_time=processing_time
         )
@@ -354,14 +290,11 @@ async def analyze_group_preferences(request: GroupCoordinationRequest):
             processing_time=processing_time
         )
 
-
-# PREFERENCE LEARNING ENDPOINTS
-@router.post("/learn-preference", response_model=APIResponse)
+# PREFERENCE LEARNING ENDPOINTS (could be moved to a separate router if needed)
+@solo_router.post("/update-preferences", response_model=APIResponse)
 async def update_user_preferences(request: PreferenceUpdateRequest):
     """
-    Update user preferences based on interaction data
-    
-    Learn from user behavior to improve future recommendations
+    Update user preferences based on interactions
     """
     start_time = datetime.now()
     
@@ -371,7 +304,7 @@ async def update_user_preferences(request: PreferenceUpdateRequest):
         
         # Update preferences
         result = await asyncio.to_thread(
-            pref_system.update_preferences_from_interaction,
+            pref_system.update_user_preferences,
             request.user_id,
             request.interaction_data
         )
@@ -402,7 +335,7 @@ async def update_user_preferences(request: PreferenceUpdateRequest):
             processing_time=processing_time
         )
 
-@router.get("/user-insights/{user_id}", response_model=APIResponse)
+@solo_router.get("/user-insights/{user_id}", response_model=APIResponse)
 async def get_user_insights(user_id: str):
     """
     Get insights about user's learned preferences and behavior patterns
@@ -440,65 +373,9 @@ async def get_user_insights(user_id: str):
             processing_time=processing_time
         )
 
-
-# # EXAMPLE AND UTILITY ENDPOINTS
-# @router.get("/examples")
-# async def get_query_examples():
-#     """
-#     Get example queries and usage patterns for both solo and group modes
-#     """
-#     examples = {
-#         "solo_mode": [
-#             {
-#                 "category": "Study & Work",
-#                 "queries": [
-#                     "study places nearby",
-#                     "quiet cafe for work with wifi",
-#                     "library near MG Road",
-#                     "peaceful place to read and study"
-#                 ]
-#             },
-#             {
-#                 "category": "Dining",
-#                 "queries": [
-#                     "family dinner near jayanagar with kids",
-#                     "affordable lunch places around here",
-#                     "romantic dinner for date night",
-#                     "best breakfast spots nearby"
-#                 ]
-#             }
-#         ],
-#         "group_mode": [
-#             {
-#                 "scenario": "Study Group",
-#                 "example_request": {
-#                     "members": [
-#                         {"name": "Alice", "age": 22, "gender": "F", "location": "12.9716,77.5946", "preferences": "quiet spaces, vegetarian", "constraints": "budget under 300"},
-#                         {"name": "Bob", "age": 23, "gender": "M", "location": "12.9352,77.6245", "preferences": "good wifi, coffee", "constraints": "no smoking areas"}
-#                     ],
-#                     "meeting_purpose": "group study session"
-#                 }
-#             },
-#             {
-#                 "scenario": "Dinner Meetup", 
-#                 "example_request": {
-#                     "members": [
-#                         {"name": "Carol", "age": 28, "gender": "F", "location": "12.9580,77.6503", "preferences": "outdoor seating, continental food", "constraints": "parking available"},
-#                         {"name": "Dave", "age": 30, "gender": "M", "location": "12.9716,77.5946", "preferences": "craft beer, live music", "constraints": "accessible entrance"}
-#                     ],
-#                     "meeting_purpose": "casual dinner with drinks"
-#                 }
-#             }
-#         ]
-#     }
-    
-#     return APIResponse(
-#         status="success",
-#         data={"examples": examples},
-#         timestamp=datetime.now().isoformat()
-#     )
-
-@router.get("/supported-intents")
+# Supported intents endpoint (shared, but could be moved to a utility router)
+@solo_router.get("/supported-intents")
+@group_router.get("/supported-intents")
 async def get_supported_intents():
     """
     Get list of supported intent categories and features
