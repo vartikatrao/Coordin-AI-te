@@ -367,24 +367,7 @@ const SoloMode = () => {
     }
   }, [coordinates, place, currentTime, filters, findClosestRoutine, setRecommendations, setIsLoading]);
 
-  // Auto-determine what to show based on current state
-  useEffect(() => {
-    if (currentMood) {
-      // If mood is selected, wait for user to click "Get Recommendations" 
-      return;
-    }
-    
-    if (userRoutines.length === 0) {
-      // No routines - show "add routine" message
-      setRecommendations([{
-        type: 'no-routines',
-        message: 'Add a routine to get routine-based recommendations'
-      }]);
-    } else {
-      // Has routines - show routine-based recommendations automatically
-      generateRecommendations('routine');
-    }
-  }, [currentMood, userRoutines.length, generateRecommendations]);
+  // Removed auto-trigger logic - now using permanent recommendations section
 
   const addRoutine = (routine) => {
     if (editingRoutine) {
@@ -1504,6 +1487,195 @@ const SoloMode = () => {
     </Box>
   );
 
+  const renderPermanentRecommendationsSection = () => {
+    return (
+      <Box>
+        <Flex justify="space-between" align="center" mb={4}>
+          <Heading size="md" color="#a60629">Recommendations</Heading>
+          {(currentMood || Object.values(filters).some(v => v && v.length > 0)) && (
+            <Button 
+              size="sm" 
+              bg="#a60629" 
+              color="white" 
+              _hover={{ bg: "#8a0522" }}
+              onClick={() => {
+                if (currentMood) {
+                  generateRecommendations('mood', currentMood);
+                } else {
+                  generateRecommendations('routine');
+                }
+              }}
+              isLoading={isLoading}
+              loadingText="Finding..."
+            >
+              Get Recommendations
+            </Button>
+          )}
+        </Flex>
+
+        {isLoading ? (
+          <Card>
+            <CardBody textAlign="center" py={8}>
+              <Spinner size="lg" color="#a60629" mb={4} />
+              <Text>Finding perfect places for you...</Text>
+            </CardBody>
+          </Card>
+        ) : recommendations.length > 0 ? (
+          <VStack spacing={6}>
+            {recommendations.map((rec, recIndex) => {
+              // Handle no-routines case
+              if (rec.type === 'no-routines') {
+                return (
+                  <Card key={recIndex} bg="gray.50" border="2px dashed" borderColor="gray.300" w="100%">
+                    <CardBody textAlign="center" py={8}>
+                      <Text fontSize="3xl" mb={3}>🎯</Text>
+                      <Text color="gray.500" mb={2}>Get personalized locations based on routines</Text>
+                      <Text fontSize="sm" color="gray.400" mb={4}>
+                        Add a routine to get AI-powered recommendations for your daily activities
+                      </Text>
+                      <Button 
+                        bg="#a60629" 
+                        color="white" 
+                        _hover={{ bg: "#8a0522" }}
+                        onClick={onRoutineOpen}
+                        size="sm"
+                      >
+                        Add Your First Routine
+                      </Button>
+                    </CardBody>
+                  </Card>
+                );
+              }
+
+              // Handle recommendations with places
+              const locations = parseLocationRecommendations(rec.suggestions || rec);
+              const recommendationType = rec.type === 'mood' ? 'Mood-based' : 'Routine-based';
+              
+              return (
+                <Box key={recIndex} w="100%">
+                  {/* Summary Header */}
+                  <Card mb={4} bg={rec.type === 'mood' ? 'purple.50' : 'blue.50'} border="1px solid" borderColor={rec.type === 'mood' ? 'purple.200' : 'blue.200'}>
+                    <CardBody>
+                      <VStack align="start" spacing={1}>
+                        <Text fontWeight="semibold" color="#a60629">
+                          {recommendationType} Recommendations
+                        </Text>
+                        {rec.type === 'mood' && (
+                          <Text fontSize="sm" color="gray.600">
+                            Perfect for when you're feeling {rec.mood} {currentMood?.emoji}
+                          </Text>
+                        )}
+                        {rec.type === 'routine' && rec.routine && (
+                          <Text fontSize="sm" color="gray.600">
+                            Perfect for your {rec.routine.name} routine {rec.routine.icon}
+                          </Text>
+                        )}
+                        <Text fontSize="xs" color="gray.400">
+                          {locations.length} locations found • Updated at {new Date().toLocaleTimeString()}
+                        </Text>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  {/* Location Cards */}
+                  {locations.length > 0 ? (
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      {locations.map((location, index) => (
+                        <Card key={index} variant="outline" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                          <CardBody>
+                            <VStack align="start" spacing={3}>
+                              <HStack justify="space-between" w="100%">
+                                <Text fontWeight="bold" fontSize="lg" color="#a60629">{location.name}</Text>
+                                <Button size="sm" bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}>
+                                  View
+                                </Button>
+                              </HStack>
+                              
+                              <VStack align="start" spacing={2} w="100%">
+                                {location.distance && (
+                                  <HStack>
+                                    <Text fontSize="sm" color="gray.500" fontWeight="semibold">Distance:</Text>
+                                    <Text fontSize="sm">{location.distance}</Text>
+                                  </HStack>
+                                )}
+                                {location.cuisine && (
+                                  <HStack>
+                                    <Text fontSize="sm" color="gray.500" fontWeight="semibold">Type:</Text>
+                                    <Text fontSize="sm">{location.cuisine}</Text>
+                                  </HStack>
+                                )}
+                                {location.rating && (
+                                  <HStack>
+                                    <Text fontSize="sm" color="gray.500" fontWeight="semibold">Rating:</Text>
+                                    <Badge colorScheme={location.rating >= 4.0 ? 'green' : location.rating >= 3.0 ? 'yellow' : 'red'}>
+                                      {location.rating}/10
+                                    </Badge>
+                                  </HStack>
+                                )}
+                                {location.priceLevel && (
+                                  <HStack>
+                                    <Text fontSize="sm" color="gray.500" fontWeight="semibold">Price:</Text>
+                                    <Text fontSize="sm" color="green.600" fontWeight="bold">{location.priceLevel}</Text>
+                                  </HStack>
+                                )}
+                                {location.address && (
+                                  <Text fontSize="sm" color="gray.600">
+                                    📍 {location.address}
+                                  </Text>
+                                )}
+                              </VStack>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </SimpleGrid>
+                  ) : (
+                    <Card bg="gray.50">
+                      <CardBody textAlign="center">
+                        <Text color="gray.500">
+                          No specific locations found in recommendations
+                        </Text>
+                      </CardBody>
+                    </Card>
+                  )}
+                </Box>
+              );
+            })}
+          </VStack>
+        ) : userRoutines.length === 0 ? (
+          <Card bg="gray.50" border="2px dashed" borderColor="gray.300">
+            <CardBody textAlign="center" py={8}>
+              <Text fontSize="3xl" mb={3}>🎯</Text>
+              <Text color="gray.500" mb={2}>Get personalized locations based on routines</Text>
+              <Text fontSize="sm" color="gray.400" mb={4}>
+                Add your daily routines and I'll find the perfect places for each activity
+              </Text>
+              <Button 
+                bg="#a60629" 
+                color="white" 
+                _hover={{ bg: "#8a0522" }}
+                onClick={onRoutineOpen}
+                size="sm"
+              >
+                Add Your First Routine
+              </Button>
+            </CardBody>
+          </Card>
+        ) : (
+          <Card bg="blue.50" border="1px solid" borderColor="blue.200">
+            <CardBody textAlign="center" py={8}>
+              <Text fontSize="3xl" mb={3}>✨</Text>
+              <Text color="gray.600" mb={2}>Ready for routine-based recommendations</Text>
+              <Text fontSize="sm" color="gray.500" mb={4}>
+                Click "Get Recommendations" above or select your mood and filters for personalized suggestions
+              </Text>
+            </CardBody>
+          </Card>
+        )}
+      </Box>
+    );
+  };
+
   if (!user || !user.uid) {
     return (
       <Box minH="100vh" bg="gray.50" display="flex" alignItems="center" justifyContent="center">
@@ -1583,7 +1755,11 @@ const SoloMode = () => {
                   )}
                 </Box>
 
-                {/* Unified Recommendations */}
+                {/* Permanent Recommendations Section */}
+                {renderPermanentRecommendationsSection()}
+
+                {/* Old unified recommendations section - disabled */}
+                {false && (
                 {recommendations.length > 0 && (
                   <Box>
                     <VStack spacing={6}>
@@ -1794,6 +1970,7 @@ const SoloMode = () => {
           </Grid>
         </VStack>
       </Box>
+      )} {/* End of disabled old recommendations section */}
 
       {/* Mood Selection Modal */}
       <Modal isOpen={isMoodOpen} onClose={onMoodClose} size="lg">
