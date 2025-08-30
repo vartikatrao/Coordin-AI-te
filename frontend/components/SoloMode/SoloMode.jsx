@@ -1419,6 +1419,17 @@ const SoloMode = () => {
                         </Badge>
                         <Button 
                           size="sm" 
+                          bg="#a60629" 
+                          color="white" 
+                          _hover={{ bg: "#8a0522" }}
+                          onClick={() => generateRecommendations('mood', currentMood)}
+                          isLoading={isLoading}
+                          loadingText="Finding..."
+                        >
+                          Get Recommendations
+                        </Button>
+                        <Button 
+                          size="sm" 
                           variant="outline" 
                           onClick={() => {
                             setCurrentMood(null);
