@@ -83,9 +83,7 @@ const SoloMode = () => {
   const [trafficData, setTrafficData] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [recommendations, setRecommendations] = useState([]);
-  const [proactiveRecommendations, setProactiveRecommendations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isProactiveLoading, setIsProactiveLoading] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   
   // Filter states
@@ -389,105 +387,7 @@ const SoloMode = () => {
 
 
 
-  const generateProactiveRecommendations = async () => {
-    if (!coordinates && !place) return;
-    
-    // Don't generate proactive recommendations if user hasn't added any routines
-    if (userRoutines.length === 0) return;
-    
-    setIsProactiveLoading(true);
-    try {
-      const closestRoutine = findClosestRoutine();
-      if (!closestRoutine) return;
-
-      // Use routine places if available, otherwise fall back to activity
-      const placesToFind = closestRoutine.places || [closestRoutine.activity];
-      
-      // Build filter string for proactive recommendations
-      let filterString = '';
-      if (filters.budget) {
-        const budgetLabel = budgetOptions.find(b => b.value === filters.budget)?.label || '';
-        filterString += ` Budget: ${budgetLabel}.`;
-      }
-      if (filters.timePreference) {
-        filterString += ` Time preference: ${filters.timePreference}.`;
-      }
-      if (filters.atmosphere) {
-        filterString += ` Atmosphere: ${filters.atmosphere}.`;
-      }
-      if (filters.features.length > 0) {
-        filterString += ` Required features: ${filters.features.join(', ')}.`;
-      }
-
-      const response = await fetch('http://localhost:8000/api/v1/solo-page/preferences', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: `Based on the current time (${currentTime.toLocaleTimeString()}), I need ${placesToFind.join(' or ')} near my location for my ${closestRoutine.name} routine.${filterString}`,
-          user_location: coordinates ? `${coordinates.lat},${coordinates.lon}` : (place || "12.9716,77.5946"),
-          context: {
-            budget: filters.budget,
-            categories: filters.categories,
-            radius: filters.radius,
-            time_preference: filters.timePreference,
-            atmosphere: filters.atmosphere,
-            group_type: filters.groupType,
-            features: filters.features,
-            price: filters.budget,
-            routine_type: closestRoutine.activity
-          }
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.status === 'success') {
-        // Store the complete data for parsing locations
-        const responseData = result.data;
-        
-        // Extract the final recommendation text
-        let recommendationText = 'No recommendations available';
-        
-        if (responseData?.final_recommendation) {
-          recommendationText = responseData.final_recommendation;
-        } else if (responseData?.response) {
-          recommendationText = responseData.response;
-        } else if (typeof responseData === 'string') {
-          recommendationText = responseData;
-        } else if (responseData?.raw && typeof responseData.raw === 'string') {
-          recommendationText = responseData.raw;
-        } else if (responseData?.pydantic && typeof responseData.pydantic === 'string') {
-          recommendationText = responseData.pydantic;
-        } else if (responseData?.json_dict?.recommendations) {
-          recommendationText = responseData.json_dict.recommendations;
-        } else if (responseData?.tasks_output && typeof responseData.tasks_output === 'string') {
-          recommendationText = responseData.tasks_output;
-        } else if (responseData) {
-          recommendationText = JSON.stringify(responseData, null, 2);
-        }
-        
-        // Clear mood-based recommendations when setting proactive ones
-        setRecommendations([]);
-        setProactiveRecommendations([{
-          type: 'routine-based',
-          routine: closestRoutine,
-          places: placesToFind,
-          suggestions: responseData,  // Pass the complete data for parsing
-          timestamp: new Date().toLocaleTimeString()
-        }]);
-      }
-    } catch (error) {
-      console.error('Error generating proactive recommendations:', error);
-    } finally {
-      setIsProactiveLoading(false);
-    }
-  };
+  // generateProactiveRecommendations function removed - now using unified generateRecommendations
 
   const getContextAwareRecommendations = () => {
     const hour = currentTime.getHours();
@@ -1179,22 +1079,16 @@ const SoloMode = () => {
             bg="#a60629" 
             color="white" 
             _hover={{ bg: "#8a0522" }}
-            onClick={generateProactiveRecommendations}
-            isLoading={isProactiveLoading}
+            onClick={() => generateRecommendations('routine')}
+            isLoading={isLoading}
             loadingText="Refreshing"
           >
             Refresh
           </Button>
         </Flex>
         
-        {isProactiveLoading ? (
-          <Card>
-            <CardBody textAlign="center" py={8}>
-              <Spinner size="lg" color="#a60629" mb={4} />
-              <Text>Finding perfect places for you...</Text>
-            </CardBody>
-          </Card>
-        ) : proactiveRecommendations.length > 0 ? (
+        {/* Proactive recommendations logic removed - now using unified recommendations system */}
+        {false ? (
           <VStack spacing={6}>
             {proactiveRecommendations.map((rec, recIndex) => {
               const locations = parseLocationRecommendations(rec.suggestions || {});
@@ -1357,7 +1251,7 @@ const SoloMode = () => {
                 bg="#a60629" 
                 color="white" 
                 _hover={{ bg: "#8a0522" }}
-                onClick={generateProactiveRecommendations}
+                onClick={() => generateRecommendations('routine')}
                 size="sm"
               >
                 Get Recommendations
