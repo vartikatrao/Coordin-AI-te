@@ -278,6 +278,8 @@ const SoloMode = () => {
   };
 
   const generateRecommendations = useCallback(async (type = 'routine', moodData = null) => {
+    const timestamp = new Date().toISOString();
+    console.log(`🚀 generateRecommendations called with:`, { type, moodData, timestamp });
     setIsLoading(true);
     try {
       let query = '';
@@ -296,7 +298,10 @@ const SoloMode = () => {
         if (filters.atmosphere) {
           filterString += ` Atmosphere: ${filters.atmosphere}.`;
         }
-        if (filters.features.length > 0) {
+        if (filters.categories && Array.isArray(filters.categories) && filters.categories.length > 0) {
+          filterString += ` I specifically want: ${filters.categories.join(', ')}.`;
+        }
+        if (filters.features && Array.isArray(filters.features) && filters.features.length > 0) {
           filterString += ` Required features: ${filters.features.join(', ')}.`;
         }
         if (filters.radius !== 2000) {
@@ -304,6 +309,10 @@ const SoloMode = () => {
         }
 
         query = `I'm feeling ${moodData.mood}. Find me ${moodData.activities.join(', ')} near my location. Consider the current time (${currentTime.toLocaleTimeString()}) and my mood.${filterString}`;
+        
+        // Debug: Log the mood-based query with filters
+        console.log('🎭 Mood-based query:', query);
+        console.log('📋 Filters applied:', filters);
       } else {
         // Routine-based recommendations - use nearest routine
         const closestRoutine = findClosestRoutine();
@@ -322,6 +331,8 @@ const SoloMode = () => {
         recommendationType = 'routine';
       }
     
+      console.log('📡 Sending request to backend:', { query, coordinates, place, filters });
+      
       const response = await fetch('http://localhost:8000/api/v1/solo-page/preferences', {
         method: 'POST',
         headers: {
@@ -342,26 +353,35 @@ const SoloMode = () => {
           }
         })
       });
+      
+      console.log('📡 Response status:', response.status, response.ok);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log('📡 Backend response:', result);
       
       if (result.status === 'success') {
         const responseData = result.data;
+        console.log('✅ Processing successful response:', responseData);
         
-        setRecommendations([{
+        const newRecommendations = [{
           type: recommendationType,
           mood: moodData?.mood,
           activities: moodData?.activities,
           routine: type === 'routine' ? findClosestRoutine() : null,
           suggestions: responseData
-        }]);
+        }];
+        
+        console.log('📋 Setting recommendations:', newRecommendations);
+        setRecommendations(newRecommendations);
+      } else {
+        console.log('❌ Backend returned non-success status:', result.status);
       }
     } catch (error) {
-      console.error('Error generating recommendations:', error);
+      console.error('❌ Error generating recommendations:', error);
     } finally {
       setIsLoading(false);
     }
@@ -378,14 +398,14 @@ const SoloMode = () => {
           : r
       ));
       
-      toast({
+    toast({
         title: 'Routine updated!',
         description: `${routine.name} updated for ${routine.time}`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } else {
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+      } else {
       // Add new routine
       setUserRoutines(prev => [...prev, { ...routine, id: Date.now() }]);
       
@@ -1488,20 +1508,30 @@ const SoloMode = () => {
   );
 
   const renderPermanentRecommendationsSection = () => {
+    // Debug: Check button visibility condition
+    const hasFilters = Object.values(filters).some(v => v && v.length > 0);
+    const shouldShowButton = currentMood || hasFilters;
+    console.log('🔘 Button visibility:', { currentMood: !!currentMood, hasFilters, filters, shouldShowButton });
+    
     return (
-      <Box>
+    <Box>
         <Flex justify="space-between" align="center" mb={4}>
           <Heading size="md" color="#a60629">Recommendations</Heading>
-          {(currentMood || Object.values(filters).some(v => v && v.length > 0)) && (
+          {shouldShowButton && (
             <Button 
               size="sm" 
               bg="#a60629" 
               color="white" 
               _hover={{ bg: "#8a0522" }}
               onClick={() => {
+                console.log('🔘 Get Recommendations clicked!', { currentMood: !!currentMood, filters });
+                // Force clear recommendations and show loading
+                setRecommendations([]);
                 if (currentMood) {
+                  console.log('🎭 Triggering mood-based recommendations');
                   generateRecommendations('mood', currentMood);
                 } else {
+                  console.log('🔄 Triggering routine-based recommendations');
                   generateRecommendations('routine');
                 }
               }}
@@ -1532,16 +1562,16 @@ const SoloMode = () => {
                       <Text color="gray.500" mb={2}>Get personalized locations based on routines</Text>
                       <Text fontSize="sm" color="gray.400" mb={4}>
                         Add a routine to get AI-powered recommendations for your daily activities
-                      </Text>
-                      <Button 
+                          </Text>
+                              <Button 
                         bg="#a60629" 
                         color="white" 
                         _hover={{ bg: "#8a0522" }}
                         onClick={onRoutineOpen}
-                        size="sm"
-                      >
+                                size="sm" 
+          >
                         Add Your First Routine
-                      </Button>
+                              </Button>
                     </CardBody>
                   </Card>
                 );
@@ -1638,8 +1668,8 @@ const SoloMode = () => {
                       </CardBody>
                     </Card>
                   )}
-                </Box>
-              );
+    </Box>
+  );
             })}
           </VStack>
         ) : userRoutines.length === 0 ? (
@@ -1723,17 +1753,6 @@ const SoloMode = () => {
                         <Badge bg="#a60629" color="white" fontSize="md" p={2}>
                           {currentMood.emoji} {currentMood.mood}
                         </Badge>
-                        <Button 
-                          size="sm" 
-                          bg="#a60629" 
-                          color="white" 
-                          _hover={{ bg: "#8a0522" }}
-                          onClick={() => generateRecommendations('mood', currentMood)}
-                          isLoading={isLoading}
-                          loadingText="Finding..."
-                        >
-                          Get Recommendations
-                        </Button>
                         <Button 
                           size="sm" 
                           variant="outline" 
@@ -1956,20 +1975,12 @@ const SoloMode = () => {
                   </Box>
                 )}
 
-                {/* Loading Indicator */}
-                {isLoading && (
-                  <Card>
-                    <CardBody textAlign="center">
-                      <Text>Finding perfect places for you...</Text>
-                    </CardBody>
-                  </Card>
-                )}
+                {/* Loading indicator removed - now handled in permanent recommendations section */}
               </VStack>
             </GridItem>
           </Grid>
         </VStack>
       </Box>
-      )} {/* End of disabled old recommendations section */}
 
       {/* Mood Selection Modal */}
       <Modal isOpen={isMoodOpen} onClose={onMoodClose} size="lg">
