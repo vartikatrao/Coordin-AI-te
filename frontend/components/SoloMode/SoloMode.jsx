@@ -365,8 +365,8 @@ const SoloMode = () => {
     let closestRoutine = null;
     let minTimeDiff = Infinity;
 
-    // Check both user routines and template routines
-    const allRoutines = [...userRoutines, ...routineTemplates];
+    // Only check user-added routines, not template routines
+    const allRoutines = userRoutines;
 
     allRoutines.forEach(routine => {
       const [routineHour, routineMinutes] = routine.time.split(':').map(Number);
@@ -392,6 +392,9 @@ const SoloMode = () => {
 
   const generateProactiveRecommendations = async () => {
     if (!coordinates && !place) return;
+    
+    // Don't generate proactive recommendations if user hasn't added any routines
+    if (userRoutines.length === 0) return;
     
     setIsProactiveLoading(true);
     try {
@@ -1544,8 +1547,8 @@ const SoloMode = () => {
                   )}
                 </Box>
 
-                {/* Proactive Recommendations */}
-                {renderProactiveRecommendations()}
+                {/* Proactive Recommendations - only show if user has added routines */}
+                {userRoutines.length > 0 && renderProactiveRecommendations()}
 
                 {/* Recommendations */}
                 {recommendations.length > 0 && (
