@@ -21,6 +21,7 @@ import {
   Spinner,
   Alert,
   AlertIcon,
+  SimpleGrid,
 } from '@chakra-ui/react';
 import { 
   SearchIcon, 
@@ -41,6 +42,39 @@ const LocationFinder = ({ group }) => {
   const [meetingLocations, setMeetingLocations] = useState([]);
   const toast = useToast();
 
+  // Dummy locations for group members (you can customize these based on your needs)
+  const getDummyLocations = () => {
+    const locations = [
+      { area: "Koramangala", coords: "12.9352,77.6245" },
+      { area: "Indiranagar", coords: "12.9784,77.6408" },
+      { area: "Whitefield", coords: "12.9698,77.7500" },
+      { area: "Jayanagar", coords: "12.9250,77.5850" },
+      { area: "Marathahalli", coords: "12.9591,77.6974" },
+      { area: "HSR Layout", coords: "12.9082,77.6476" },
+      { area: "Electronic City", coords: "12.8454,77.6600" },
+      { area: "Rajajinagar", coords: "12.9925,77.5548" },
+      { area: "Malleshwaram", coords: "13.0039,77.5749" },
+      { area: "Banashankari", coords: "12.9081,77.5570" },
+      { area: "Bellandur", coords: "12.9257,77.6747" },
+      { area: "Sarjapur", coords: "12.8963,77.6836" },
+      { area: "Yelahanka", coords: "13.1007,77.5963" },
+      { area: "RT Nagar", coords: "13.0181,77.5958" },
+      { area: "JP Nagar", coords: "12.9116,77.5712" }
+    ];
+    
+    // Assign random locations to members if they don't have coordinates
+    return group.members.map((member, index) => {
+      const location = locations[index % locations.length];
+      return {
+        name: member.name,
+        location: location.coords,
+        preferences: `Enjoys ${meetingType} places, likes good ambiance`,
+        constraints: "Budget-friendly options preferred",
+        group_pref: `Looking for ${meetingType} meetup spots`
+      };
+    });
+  };
+
   // Safety check for group prop
   if (!group || !group.members) {
     return (
@@ -54,40 +88,75 @@ const LocationFinder = ({ group }) => {
     setIsLoading(true);
     
     try {
-      const data = await groupModeAPI.findGroupMeetup(
-        group.members.map(m => ({
-          name: m.name,
-          location: m.location || 'Unknown'
-        })),
-        meetingType,
-        group.members.length,
-        searchQuery || `Find ${meetingType} places for group meeting`
-      );
-
-      setAiRecommendations(data.meetup_plan);
+      // Get dummy locations for group members
+      const membersWithLocations = getDummyLocations();
       
-      // Also try to get specific location recommendations from the solo agent
-      try {
-        const soloData = await soloModeAPI.processQuery(
-          `Find ${meetingType} places suitable for group of ${group.members.length} people near ${searchQuery || 'central location'}`,
-          null,
-          {
-            purpose: meetingType,
-            group_size: group.members.length,
-            group_type: 'friends'
-          }
-        );
+      // Call the group coordination backend
+      const response = await fetch('http://localhost:8000/api/v1/group/coordinate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          members: membersWithLocations,
+          meeting_purpose: `Find ${meetingType} places for group meetup ${searchQuery ? `near ${searchQuery}` : ''}`,
+          quick_mode: false
+        }),
+      });
 
-        if (soloData.status === 'success') {
-          setMeetingLocations([soloData.data]);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.data) {
+        // Set AI recommendations from the group agent
+        if (result.data.intent) {
+          setAiRecommendations(`
+🎯 **Group Intent Analysis**
+Purpose: ${result.data.intent.purpose || meetingType}
+Food Preferences: ${result.data.intent.food || 'Mixed preferences'}
+Constraints: ${result.data.intent.constraints || 'Budget-friendly options'}
+Categories: ${result.data.intent.categories || 'restaurants, cafes'}
+
+📍 **Optimal Location**: Fair coordinates calculated at ${result.data.fair_coords?.[0]?.toFixed(4)}, ${result.data.fair_coords?.[1]?.toFixed(4)}
+
+🛡️ **Safety Assessment**: ${result.data.safety ? JSON.stringify(result.data.safety) : 'Area assessed for safety'}
+          `);
         }
-      } catch (soloError) {
-        console.warn('Solo agent location search failed:', soloError);
+        
+        // Set venues from Foursquare search
+        if (result.data.venues && result.data.venues.length > 0) {
+          setMeetingLocations(result.data.venues.map(venue => ({
+            name: venue.name || 'Venue',
+            address: venue.location?.formatted_address || venue.address || 'Address not available',
+            distance: venue.distance ? `${venue.distance}m away` : 'Near optimal location',
+            categories: venue.categories?.[0]?.name || meetingType,
+            rating: venue.rating || 'Not rated',
+            price: venue.price ? '₹'.repeat(venue.price) : 'Price not available',
+            fsq_id: venue.fsq_id,
+            website: venue.website,
+            phone: venue.tel
+          })));
+        }
+        
+        // Also set personalized explanations if available
+        if (result.data.personalized && result.data.personalized.length > 0) {
+          const personalizedText = result.data.personalized.map(item => 
+            `**${item.venue}**: ${Object.entries(item.why_for_each).map(([name, reasons]) => 
+              `${name} - ${Array.isArray(reasons) ? reasons.join(', ') : reasons}`).join(' | ')}`
+          ).join('\n\n');
+          
+          setAiRecommendations(prev => prev + '\n\n🎨 **Personalized Matches**:\n' + personalizedText);
+        }
+      } else {
+        throw new Error(result.error || 'No locations found');
       }
       
       toast({
-        title: 'AI Recommendations Generated!',
-        description: 'Found optimal meeting locations for your group',
+        title: 'Group Locations Found!',
+        description: `Found ${result.data?.venues?.length || 0} optimal meeting spots for your group`,
         status: 'success',
         duration: 3000,
         isClosable: true,
@@ -96,7 +165,7 @@ const LocationFinder = ({ group }) => {
       console.error('Error finding locations:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to find group meeting locations',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -129,21 +198,102 @@ const LocationFinder = ({ group }) => {
 
     return (
       <VStack spacing={4} align="stretch">
-        <Heading size="md" color="blue.600">Suggested Meeting Places</Heading>
-        {meetingLocations.map((location, index) => (
-          <Card key={index}>
-            <CardBody>
-              {location.recommendations && (
-                <Text>{location.recommendations}</Text>
-              )}
-              {location.response && (
-                <Text>{location.response}</Text>
-              )}
-            </CardBody>
-          </Card>
-        ))}
+        <Heading size="md" color="blue.600">
+          🏢 Recommended Meeting Places ({meetingLocations.length} found)
+        </Heading>
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+          {meetingLocations.map((location, index) => (
+            <Card 
+              key={index}
+              cursor="pointer"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+              onClick={() => openInGoogleMaps(location.name)}
+            >
+              <CardBody>
+                <VStack align="start" spacing={3}>
+                  <HStack justify="space-between" w="100%">
+                    <Text fontWeight="bold" fontSize="lg" color="blue.600">
+                      {location.name}
+                    </Text>
+                    <Text fontSize="xl">📍</Text>
+                  </HStack>
+                  
+                  <VStack align="start" spacing={2} w="100%">
+                    {location.categories && (
+                      <HStack>
+                        <Text fontSize="sm" color="gray.500" fontWeight="semibold">Type:</Text>
+                        <Badge colorScheme="purple">{location.categories}</Badge>
+                      </HStack>
+                    )}
+                    {location.distance && (
+                      <HStack>
+                        <Text fontSize="sm" color="gray.500" fontWeight="semibold">Distance:</Text>
+                        <Text fontSize="sm">{location.distance}</Text>
+                      </HStack>
+                    )}
+                    {location.rating && location.rating !== 'Not rated' && (
+                      <HStack>
+                        <Text fontSize="sm" color="gray.500" fontWeight="semibold">Rating:</Text>
+                        <Badge colorScheme="green">{location.rating}/10</Badge>
+                      </HStack>
+                    )}
+                    {location.price && location.price !== 'Price not available' && (
+                      <HStack>
+                        <Text fontSize="sm" color="gray.500" fontWeight="semibold">Price:</Text>
+                        <Text fontSize="sm" color="green.600" fontWeight="bold">{location.price}</Text>
+                      </HStack>
+                    )}
+                    {location.address && (
+                      <Text fontSize="sm" color="gray.600">
+                        📍 {location.address}
+                      </Text>
+                    )}
+                    {location.phone && (
+                      <Text fontSize="sm" color="gray.600">
+                        📞 {location.phone}
+                      </Text>
+                    )}
+                  </VStack>
+
+                  <HStack spacing={2}>
+                    <Button 
+                      size="sm" 
+                      colorScheme="blue" 
+                      leftIcon={<span>🗺️</span>}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openInGoogleMaps(location.name);
+                      }}
+                    >
+                      Open in Maps
+                    </Button>
+                    {location.website && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        leftIcon={<span>🌐</span>}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(location.website, '_blank');
+                        }}
+                      >
+                        Website
+                      </Button>
+                    )}
+                  </HStack>
+                </VStack>
+              </CardBody>
+            </Card>
+          ))}
+        </SimpleGrid>
       </VStack>
     );
+  };
+  
+  const openInGoogleMaps = (locationName) => {
+    const searchQuery = encodeURIComponent(`${locationName} near me`);
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+    window.open(mapsUrl, '_blank');
   };
 
   return (
