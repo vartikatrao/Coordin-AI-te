@@ -52,6 +52,7 @@ import {
   TimeIcon,
   AddIcon,
   EditIcon,
+  DeleteIcon,
   CheckIcon,
   CloseIcon,
 } from '@chakra-ui/icons';
@@ -422,14 +423,19 @@ const SoloMode = () => {
   };
 
   const removeRoutine = (routineId) => {
-    setUserRoutines(prev => prev.filter(routine => routine.id !== routineId));
+    const routine = userRoutines.find(r => r.id === routineId);
     
-    toast({
-      title: 'Routine removed!',
-      status: 'info',
-      duration: 2000,
-      isClosable: true,
-    });
+    if (window.confirm(`Are you sure you want to delete "${routine?.name}"? This action cannot be undone.`)) {
+      setUserRoutines(prev => prev.filter(routine => routine.id !== routineId));
+      
+      toast({
+        title: 'Routine deleted',
+        description: `${routine?.name} has been removed from your routines`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   const startEditRoutine = (routine) => {
@@ -624,15 +630,27 @@ const SoloMode = () => {
                     <Text fontWeight="semibold">{routine.name}</Text>
                     <Text fontSize="sm" color="gray.500">{routine.time}</Text>
                   </Box>
-                  <IconButton 
-                    size="sm" 
-                    icon={<EditIcon />} 
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEditRoutine(routine);
-                    }}
-                  />
+                  <HStack spacing={1}>
+                    <IconButton 
+                      size="sm" 
+                      icon={<EditIcon />} 
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditRoutine(routine);
+                      }}
+                    />
+                    <IconButton 
+                      size="sm" 
+                      icon={<DeleteIcon />} 
+                      variant="ghost"
+                      colorScheme="red"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeRoutine(routine.id);
+                      }}
+                    />
+                  </HStack>
                 </HStack>
               </CardBody>
             </Card>
