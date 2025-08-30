@@ -17,12 +17,26 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  useDisclosure,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  FormControl,
+  FormLabel,
 } from '@chakra-ui/react';
 import { 
   SunIcon, 
   SettingsIcon, 
-  CheckIcon, 
-  StarIcon,
   AddIcon,
 } from '@chakra-ui/icons';
 import { useSelector } from 'react-redux';
@@ -40,13 +54,29 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebase/firebase.config';
 
-const GroupChat = ({ group, onMessageSent }) => {
+const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
   const { user } = useSelector((state) => state.userReducer);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [typingUsers, setTypingUsers] = useState([]);
+  const [editedGroupName, setEditedGroupName] = useState('');
   const messagesEndRef = useRef(null);
   const toast = useToast();
+  
+  // Modal controls
+  const { 
+    isOpen: isSettingsOpen, 
+    onOpen: onSettingsOpen, 
+    onClose: onSettingsClose 
+  } = useDisclosure();
+  
+  const { 
+    isOpen: isLeaveOpen, 
+    onOpen: onLeaveOpen, 
+    onClose: onLeaveClose 
+  } = useDisclosure();
+  
+  const cancelRef = useRef();
 
   // Safety check for group prop
   if (!group || !group.members) {
@@ -124,16 +154,6 @@ const GroupChat = ({ group, onMessageSent }) => {
     }
   };
 
-  const handleLocationShare = () => {
-    toast({
-      title: 'Location shared',
-      description: 'Your location has been shared with the group',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-  };
-
   const handleAttachment = () => {
     toast({
       title: 'Attachment feature',
@@ -142,6 +162,122 @@ const GroupChat = ({ group, onMessageSent }) => {
       duration: 3000,
       isClosable: true,
     });
+  };
+
+  const handleOpenSettings = () => {
+    setEditedGroupName(group.name || '');
+    onSettingsOpen();
+  };
+
+  const handleSaveGroupName = async () => {
+    if (!editedGroupName.trim()) {
+      toast({
+        title: 'Invalid name',
+        description: 'Group name cannot be empty',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    try {
+      const groupRef = doc(db, 'groups', group.id);
+      await updateDoc(groupRef, {
+        name: editedGroupName.trim(),
+        lastMessage: `Group name changed to "${editedGroupName.trim()}"`,
+        lastMessageTime: serverTimestamp(),
+      });
+
+      // Add system message to chat
+      await addDoc(collection(db, 'groups', group.id, 'messages'), {
+        userId: 'system',
+        userName: 'System',
+        userAvatar: '',
+        message: `${user.displayName} changed the group name to "${editedGroupName.trim()}"`,
+        timestamp: serverTimestamp(),
+        isSystemMessage: true,
+      });
+
+      toast({
+        title: 'Group name updated',
+        description: `Group renamed to "${editedGroupName.trim()}"`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      onSettingsClose();
+      
+      // Notify parent component with updated group data
+      if (onGroupUpdate) {
+        const updatedGroup = {
+          ...group,
+          name: editedGroupName.trim()
+        };
+        onGroupUpdate(updatedGroup);
+      }
+    } catch (error) {
+      console.error('Error updating group name:', error);
+      toast({
+        title: 'Error updating group',
+        description: error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    try {
+      const groupRef = doc(db, 'groups', group.id);
+      
+      // Remove user from memberIds array
+      const updatedMemberIds = group.memberIds.filter(id => id !== user.uid);
+      const updatedMembers = group.members.filter(member => (member.id || member.uid) !== user.uid);
+      
+      await updateDoc(groupRef, {
+        memberIds: updatedMemberIds,
+        members: updatedMembers,
+        lastMessage: `${user.displayName} left the group`,
+        lastMessageTime: serverTimestamp(),
+      });
+
+      // Add system message to chat
+      await addDoc(collection(db, 'groups', group.id, 'messages'), {
+        userId: 'system',
+        userName: 'System',
+        userAvatar: '',
+        message: `${user.displayName} left the group`,
+        timestamp: serverTimestamp(),
+        isSystemMessage: true,
+      });
+
+      toast({
+        title: 'Left group',
+        description: `You have left "${group.name}"`,
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      onLeaveClose();
+      
+      // Notify parent component if callback provided
+      if (onLeaveGroup) {
+        onLeaveGroup(group.id);
+      }
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      toast({
+        title: 'Error leaving group',
+        description: error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
   // Listen for typing indicators
@@ -205,20 +341,6 @@ const GroupChat = ({ group, onMessageSent }) => {
           </Flex>
           
           <HStack spacing={2}>
-            <IconButton
-              icon={<StarIcon />}
-              aria-label="Voice call"
-              variant="ghost"
-              colorScheme="purple"
-              onClick={() => toast({ title: 'Voice call', description: 'Coming soon!', status: 'info' })}
-            />
-            <IconButton
-              icon={<StarIcon />}
-              aria-label="Video call"
-              variant="ghost"
-              colorScheme="purple"
-              onClick={() => toast({ title: 'Video call', description: 'Coming soon!', status: 'info' })}
-            />
             <Menu>
               <MenuButton
                 as={IconButton}
@@ -228,14 +350,15 @@ const GroupChat = ({ group, onMessageSent }) => {
                 colorScheme="purple"
               />
               <MenuList>
-                <MenuItem icon={<CheckIcon />} onClick={handleLocationShare}>
-                  Share Location
-                </MenuItem>
                 <MenuItem icon={<AddIcon />} onClick={handleAttachment}>
                   Share Files
                 </MenuItem>
-                <MenuItem>Group Settings</MenuItem>
-                <MenuItem color="red.500">Leave Group</MenuItem>
+                <MenuItem icon={<SettingsIcon />} onClick={handleOpenSettings}>
+                  Group Settings
+                </MenuItem>
+                <MenuItem color="red.500" onClick={onLeaveOpen}>
+                  Leave Group
+                </MenuItem>
               </MenuList>
             </Menu>
           </HStack>
@@ -249,45 +372,62 @@ const GroupChat = ({ group, onMessageSent }) => {
             messages.map((message) => (
               <Box
                 key={message.id || Math.random()}
-                alignSelf={message.userId === user?.uid ? 'flex-end' : 'flex-start'}
-                maxW="70%"
+                alignSelf={message.userId === 'system' ? 'center' : (message.userId === user?.uid ? 'flex-end' : 'flex-start')}
+                maxW={message.userId === 'system' ? '90%' : '70%'}
               >
-                <Flex direction={message.userId === user?.uid ? 'row-reverse' : 'row'} align="end">
-                  {message.userId !== user?.uid && (
-                    <Avatar
-                      src={message.userAvatar || 'https://bit.ly/default-avatar'}
-                      name={message.userName || 'User'}
-                      size="sm"
-                      mr={2}
-                    />
-                  )}
-                  
+                {message.userId === 'system' ? (
+                  // System message styling
                   <Box
-                    bg={message.userId === user?.uid ? 'purple.500' : 'white'}
-                    color={message.userId === user?.uid ? 'white' : 'black'}
-                    px={4}
-                    py={2}
-                    borderRadius="lg"
+                    bg="gray.100"
+                    color="gray.600"
+                    px={3}
+                    py={1}
+                    borderRadius="full"
                     border="1px solid"
-                    borderColor={message.userId === user?.uid ? 'transparent' : 'gray.200'}
-                    boxShadow="sm"
+                    borderColor="gray.200"
+                    textAlign="center"
                   >
-                    {message.userId !== user?.uid && (
-                      <Text fontSize="xs" color="gray.500" mb={1}>
-                        {message.userName || 'User'}
-                      </Text>
-                    )}
-                    <Text fontSize="sm">{message.message || ''}</Text>
-                    <Text
-                      fontSize="xs"
-                      color={message.userId === user?.uid ? 'purple.100' : 'gray.500'}
-                      mt={1}
-                      textAlign={message.userId === user?.uid ? 'right' : 'left'}
-                    >
-                      {message.timestamp || ''}
-                    </Text>
+                    <Text fontSize="xs">{message.message || ''}</Text>
                   </Box>
-                </Flex>
+                ) : (
+                  // Regular message styling
+                  <Flex direction={message.userId === user?.uid ? 'row-reverse' : 'row'} align="end">
+                    {message.userId !== user?.uid && (
+                      <Avatar
+                        src={message.userAvatar || 'https://bit.ly/default-avatar'}
+                        name={message.userName || 'User'}
+                        size="sm"
+                        mr={2}
+                      />
+                    )}
+                    
+                    <Box
+                      bg={message.userId === user?.uid ? 'purple.500' : 'white'}
+                      color={message.userId === user?.uid ? 'white' : 'black'}
+                      px={4}
+                      py={2}
+                      borderRadius="lg"
+                      border="1px solid"
+                      borderColor={message.userId === user?.uid ? 'transparent' : 'gray.200'}
+                      boxShadow="sm"
+                    >
+                      {message.userId !== user?.uid && (
+                        <Text fontSize="xs" color="gray.500" mb={1}>
+                          {message.userName || 'User'}
+                        </Text>
+                      )}
+                      <Text fontSize="sm">{message.message || ''}</Text>
+                      <Text
+                        fontSize="xs"
+                        color={message.userId === user?.uid ? 'purple.100' : 'gray.500'}
+                        mt={1}
+                        textAlign={message.userId === user?.uid ? 'right' : 'left'}
+                      >
+                        {message.timestamp || ''}
+                      </Text>
+                    </Box>
+                  </Flex>
+                )}
               </Box>
             ))
           ) : (
@@ -363,6 +503,105 @@ const GroupChat = ({ group, onMessageSent }) => {
           </Button>
         </Flex>
       </Box>
+
+      {/* Group Settings Modal */}
+      <Modal isOpen={isSettingsOpen} onClose={onSettingsClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Group Settings</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <FormControl>
+                <FormLabel>Group Name</FormLabel>
+                <Input
+                  value={editedGroupName}
+                  onChange={(e) => setEditedGroupName(e.target.value)}
+                  placeholder="Enter group name..."
+                  size="lg"
+                />
+              </FormControl>
+              
+              <Box>
+                <Text fontWeight="semibold" mb={2}>Group Members</Text>
+                <VStack spacing={2} align="stretch">
+                  {group.members.map((member, index) => (
+                    <HStack key={index} spacing={3}>
+                      <Avatar
+                        src={member.avatar}
+                        name={member.name}
+                        size="sm"
+                      />
+                      <Text flex="1">{member.name}</Text>
+                      {member.id === user.uid && (
+                        <Badge colorScheme="purple" variant="subtle">You</Badge>
+                      )}
+                    </HStack>
+                  ))}
+                </VStack>
+              </Box>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button mr={3} onClick={onSettingsClose}>
+              Cancel
+            </Button>
+            <Button 
+              colorScheme="purple" 
+              onClick={handleSaveGroupName}
+              isDisabled={!editedGroupName.trim() || editedGroupName.trim() === group.name}
+            >
+              Save Changes
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Leave Group Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isLeaveOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onLeaveClose}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Leave Group
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              <VStack spacing={4} align="center">
+                <Avatar
+                  src={group.members[0]?.avatar || 'https://bit.ly/default-avatar'}
+                  name={group.name || 'Group'}
+                  size="lg"
+                />
+                <Text textAlign="center">
+                  Are you sure you want to leave <strong>"{group.name}"</strong>?
+                </Text>
+                <Text fontSize="sm" color="gray.600" textAlign="center">
+                  You'll no longer receive messages from this group and won't be able to participate in conversations.
+                </Text>
+              </VStack>
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onLeaveClose}>
+                Cancel
+              </Button>
+              <Button 
+                colorScheme="red" 
+                onClick={handleLeaveGroup} 
+                ml={3}
+              >
+                Leave Group
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
   );
 };

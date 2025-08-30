@@ -20,11 +20,19 @@ import {
   useDisclosure,
   Divider,
   IconButton,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from '@chakra-ui/react';
-import { AddIcon, SearchIcon, ChatIcon, ViewIcon } from '@chakra-ui/icons';
+import { AddIcon, SearchIcon, ChatIcon, ViewIcon, DeleteIcon } from '@chakra-ui/icons';
 import UserDiscovery from './UserDiscovery';
 import GroupChat from './GroupChat';
 import LocationFinder from './LocationFinder';
+import FriendSearch from './FriendSearch';
+import FriendRequests from './FriendRequests';
 import { useSelector } from 'react-redux';
 import { groupModeAPI } from '@/services/api';
 import { 
@@ -36,7 +44,8 @@ import {
   orderBy,
   serverTimestamp,
   doc,
-  updateDoc
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '@/firebase/firebase.config';
 
@@ -44,9 +53,17 @@ const GroupMode = () => {
   const { user } = useSelector((state) => state.userReducer);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [groups, setGroups] = useState([]);
-  const [activeTab, setActiveTab] = useState('discovery'); // 'discovery', 'chat', 'location'
+  const [filteredGroups, setFilteredGroups] = useState([]);
+  const [groupSearchQuery, setGroupSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('groups'); // 'groups', 'discovery', 'friends', 'requests', 'chat', 'location'
   const [isLoading, setIsLoading] = useState(true);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { 
+    isOpen: isDeleteOpen, 
+    onOpen: onDeleteOpen, 
+    onClose: onDeleteClose 
+  } = useDisclosure();
+  const [groupToDelete, setGroupToDelete] = useState(null);
   const toast = useToast();
 
   // Set loading to false once user state is determined
@@ -86,10 +103,34 @@ const GroupMode = () => {
       });
       
       setGroups(sortedGroups);
+      
+      // Update currentGroup if it exists and has been modified
+      if (currentGroup) {
+        const updatedCurrentGroup = sortedGroups.find(g => g.id === currentGroup.id);
+        if (updatedCurrentGroup) {
+          setCurrentGroup(updatedCurrentGroup);
+        }
+      }
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user?.uid, currentGroup?.id]);
+
+  // Filter groups based on search query
+  useEffect(() => {
+    if (groupSearchQuery.trim() === '') {
+      setFilteredGroups(groups);
+    } else {
+      const filtered = groups.filter(group =>
+        group.name?.toLowerCase().includes(groupSearchQuery.toLowerCase()) ||
+        group.members?.some(member => 
+          member.name?.toLowerCase().includes(groupSearchQuery.toLowerCase())
+        ) ||
+        group.lastMessage?.toLowerCase().includes(groupSearchQuery.toLowerCase())
+      );
+      setFilteredGroups(filtered);
+    }
+  }, [groupSearchQuery, groups]);
 
   const handleCreateGroup = async (groupData) => {
     try {
@@ -163,6 +204,50 @@ const GroupMode = () => {
     setActiveTab('chat');
   };
 
+  const handleDeleteClick = (group, event) => {
+    event.stopPropagation(); // Prevent group selection when clicking delete
+    setGroupToDelete(group);
+    onDeleteOpen();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!groupToDelete) return;
+
+    try {
+      // Delete from Firebase
+      await deleteDoc(doc(db, 'groups', groupToDelete.id));
+
+      // Note: No need to manually update local state since the onSnapshot listener
+      // will automatically remove the group from the groups array when it's deleted from Firebase
+      
+      // If the deleted group was currently selected, clear selection
+      if (currentGroup?.id === groupToDelete.id) {
+        setCurrentGroup(null);
+        setActiveTab('groups');
+      }
+
+      toast({
+        title: 'Group deleted',
+        description: `${groupToDelete.name} has been deleted`,
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      setGroupToDelete(null);
+      onDeleteClose();
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      toast({
+        title: 'Error deleting group',
+        description: error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const updateGroupLastMessage = async (groupId, message, senderName) => {
     try {
       const groupRef = doc(db, 'groups', groupId);
@@ -202,13 +287,57 @@ const GroupMode = () => {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'groups':
+        return (
+          <Box>
+            <Heading size="lg" mb={4}>My Groups</Heading>
+            <Text color="gray.600" mb={6}>
+              Select a group from the sidebar or create a new one
+            </Text>
+            {groups.length === 0 ? (
+              <Box textAlign="center" py={10}>
+                <Text color="gray.500" fontSize="lg">No groups yet</Text>
+                <Text color="gray.400" mt={2}>Create your first group to get started!</Text>
+                <Button 
+                  mt={4} 
+                  colorScheme="purple" 
+                  onClick={() => setActiveTab('discovery')}
+                >
+                  Create Group
+                </Button>
+              </Box>
+            ) : (
+              <Text color="gray.500">
+                Select a group from the sidebar to view details, chat, or find locations.
+              </Text>
+            )}
+          </Box>
+        );
       case 'discovery':
         return <UserDiscovery onCreateGroup={handleCreateGroup} />;
+      case 'friends':
+        return <FriendSearch />;
+      case 'requests':
+        return <FriendRequests />;
       case 'chat':
         return currentGroup ? (
           <GroupChat 
             group={currentGroup} 
             onMessageSent={updateGroupLastMessage}
+            onGroupUpdate={(updatedGroup) => {
+              // Update currentGroup immediately with the new data
+              if (updatedGroup && currentGroup?.id === updatedGroup.id) {
+                setCurrentGroup(updatedGroup);
+              }
+              // The groups list will automatically update via the onSnapshot listener
+            }}
+            onLeaveGroup={(groupId) => {
+              // Handle leaving group - clear current group and go back to groups list
+              if (currentGroup?.id === groupId) {
+                setCurrentGroup(null);
+                setActiveTab('groups');
+              }
+            }}
           />
         ) : (
           <Box textAlign="center" py={10}>
@@ -224,7 +353,31 @@ const GroupMode = () => {
           </Box>
         );
       default:
-        return <UserDiscovery onCreateGroup={handleCreateGroup} />;
+        return (
+          <Box>
+            <Heading size="lg" mb={4}>My Groups</Heading>
+            <Text color="gray.600" mb={6}>
+              Select a group from the sidebar or create a new one
+            </Text>
+            {groups.length === 0 ? (
+              <Box textAlign="center" py={10}>
+                <Text color="gray.500" fontSize="lg">No groups yet</Text>
+                <Text color="gray.400" mt={2}>Create your first group to get started!</Text>
+                <Button 
+                  mt={4} 
+                  colorScheme="purple" 
+                  onClick={() => setActiveTab('discovery')}
+                >
+                  Create Group
+                </Button>
+              </Box>
+            ) : (
+              <Text color="gray.500">
+                Select a group from the sidebar to view details, chat, or find locations.
+              </Text>
+            )}
+          </Box>
+        );
     }
   };
 
@@ -249,11 +402,23 @@ const GroupMode = () => {
         <Box w="300px" bg="white" borderRight="1px solid" borderColor="gray.200">
           <Box p={4} borderBottom="1px solid" borderColor="gray.200">
             <Text fontWeight="bold" mb={3}>Your Groups</Text>
-            <Input placeholder="Search groups..." size="sm" />
+            <Input 
+              placeholder="Search groups..." 
+              size="sm" 
+              value={groupSearchQuery}
+              onChange={(e) => setGroupSearchQuery(e.target.value)}
+            />
           </Box>
           
           <VStack spacing={0} align="stretch">
-            {groups.map((group) => (
+            {filteredGroups.length === 0 && groupSearchQuery.trim() !== '' ? (
+              <Box p={4} textAlign="center">
+                <Text color="gray.500" fontSize="sm">
+                  No groups found matching "{groupSearchQuery}"
+                </Text>
+              </Box>
+            ) : (
+              filteredGroups.map((group) => (
               <Box
                 key={group.id}
                 p={4}
@@ -268,11 +433,22 @@ const GroupMode = () => {
                   <Text fontWeight="semibold" noOfLines={1}>
                     {group.name}
                   </Text>
-                  {group.unreadCount > 0 && (
-                    <Badge colorScheme="red" borderRadius="full">
-                      {group.unreadCount}
-                    </Badge>
-                  )}
+                  <HStack spacing={2}>
+                    {group.unreadCount > 0 && (
+                      <Badge colorScheme="red" borderRadius="full">
+                        {group.unreadCount}
+                      </Badge>
+                    )}
+                    <IconButton
+                      size="xs"
+                      icon={<DeleteIcon />}
+                      colorScheme="red"
+                      variant="ghost"
+                      aria-label="Delete group"
+                      onClick={(e) => handleDeleteClick(group, e)}
+                      _hover={{ bg: 'red.100' }}
+                    />
+                  </HStack>
                 </Flex>
                 
                 <Text fontSize="sm" color="gray.600" noOfLines={1} mb={2}>
@@ -300,39 +476,71 @@ const GroupMode = () => {
                   </Text>
                 </Flex>
               </Box>
-            ))}
+              ))
+            )}
           </VStack>
         </Box>
 
         {/* Main Content Area */}
-        <Box flex={1} bg="white">
+        <Box flex={1} bg="white" display="flex" flexDirection="column">
           {/* Tab Navigation */}
-          <Flex borderBottom="1px solid" borderColor="gray.200">
+          <Flex borderBottom="1px solid" borderColor="gray.200" wrap="wrap" flexShrink={0}>
+            <Button
+              variant={activeTab === 'groups' ? 'solid' : 'ghost'}
+              colorScheme={activeTab === 'groups' ? 'purple' : 'gray'}
+              borderRadius="none"
+              onClick={() => setActiveTab('groups')}
+              size="sm"
+            >
+              My Groups
+            </Button>
             <Button
               variant={activeTab === 'discovery' ? 'solid' : 'ghost'}
-              colorScheme={activeTab === 'discovery' ? 'blackAlpha' : 'gray'}
+              colorScheme={activeTab === 'discovery' ? 'purple' : 'gray'}
               borderRadius="none"
               onClick={() => setActiveTab('discovery')}
+              size="sm"
             >
               <SearchIcon mr={2} />
-              Find People
+              Create Group
+            </Button>
+            <Button
+              variant={activeTab === 'friends' ? 'solid' : 'ghost'}
+              colorScheme={activeTab === 'friends' ? 'purple' : 'gray'}
+              borderRadius="none"
+              onClick={() => setActiveTab('friends')}
+              size="sm"
+            >
+              <AddIcon mr={2} />
+              Find Friends
+            </Button>
+            <Button
+              variant={activeTab === 'requests' ? 'solid' : 'ghost'}
+              colorScheme={activeTab === 'requests' ? 'purple' : 'gray'}
+              borderRadius="none"
+              onClick={() => setActiveTab('requests')}
+              size="sm"
+            >
+              Friend Requests
             </Button>
             <Button
               variant={activeTab === 'chat' ? 'solid' : 'ghost'}
-              colorScheme={activeTab === 'chat' ? 'blackAlpha' : 'gray'}
+              colorScheme={activeTab === 'chat' ? 'purple' : 'gray'}
               borderRadius="none"
               onClick={() => setActiveTab('chat')}
               isDisabled={!currentGroup}
+              size="sm"
             >
               <ChatIcon mr={2} />
               Group Chat
             </Button>
             <Button
               variant={activeTab === 'location' ? 'solid' : 'ghost'}
-              colorScheme={activeTab === 'location' ? 'blackAlpha' : 'gray'}
+              colorScheme={activeTab === 'location' ? 'purple' : 'gray'}
               borderRadius="none"
               onClick={() => setActiveTab('location')}
               isDisabled={!currentGroup}
+              size="sm"
             >
               <ViewIcon mr={2} />
               Find Location
@@ -340,7 +548,7 @@ const GroupMode = () => {
           </Flex>
 
           {/* Content */}
-          <Box p={6}>
+          <Box p={6} flex="1" h="0">
             {renderContent()}
           </Box>
         </Box>
@@ -357,6 +565,39 @@ const GroupMode = () => {
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      {/* Delete Group Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isDeleteOpen}
+        onClose={onDeleteClose}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Delete Group
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              Are you sure you want to delete "{groupToDelete?.name}"? 
+              This action cannot be undone and will remove all messages and data associated with this group.
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button onClick={onDeleteClose}>
+                Cancel
+              </Button>
+              <Button 
+                colorScheme="red" 
+                onClick={handleDeleteConfirm} 
+                ml={3}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
   );
 };
