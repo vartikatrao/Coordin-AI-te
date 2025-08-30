@@ -1844,7 +1844,7 @@ const SoloMode = () => {
                 
                 <HStack spacing={3} w="100%">
                   <Button flex={1} variant="outline" onClick={() => setIsCustomMode(false)}>
-                    Back to Templates
+                    ← Back to Templates
                   </Button>
                   <Button flex={1} bg="#a60629" color="white" _hover={{ bg: "#8a0522" }} onClick={handleCustomRoutineSubmit}>
                     {editingRoutine ? 'Update Routine' : 'Create Routine'}
@@ -1855,14 +1855,23 @@ const SoloMode = () => {
               <VStack spacing={6}>
                 {/* Quick Templates */}
                 <Box w="100%">
-                  <Text fontWeight="semibold" mb={3}>Quick Templates</Text>
+                  <Text fontWeight="semibold" mb={3}>Choose a Template to Customize</Text>
                   <SimpleGrid columns={[1, 2]} spacing={3}>
                     {routineTemplates.map((routine) => (
                       <Card
                         key={routine.name}
                         cursor="pointer"
                         _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
-                        onClick={() => addRoutine(routine)}
+                        onClick={() => {
+                          setCustomRoutine({
+                            name: routine.name,
+                            time: routine.time,
+                            activity: routine.activity,
+                            icon: routine.icon,
+                            places: routine.places || []
+                          });
+                          setIsCustomMode(true);
+                        }}
                       >
                         <CardBody textAlign="center" py={3}>
                           <Text fontSize="2xl" mb={1}>{routine.icon}</Text>
