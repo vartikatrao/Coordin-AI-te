@@ -53,15 +53,22 @@ const SoloMode = () => {
     setIsLoading(true);
     
     try {
-      // Call the actual backend API
-      const response = await fetch('http://localhost:8000/api/v1/solo/query', {
+      // Call the solo page specific API (keeping original frontend intact)
+      const response = await fetch('http://localhost:8000/api/v1/solo-page/preferences', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: `Find ${selectedPreferences.purpose} places for ${selectedPreferences.mood || 'any'} mood, budget: ${selectedPreferences.budget || 'any'}, time: ${selectedPreferences.time || 'any time'}, transport: ${selectedPreferences.transport || 'any'}, near ${selectedPreferences.location || 'my current location'}`,
-          user_location: coordinates ? `${coordinates.lat},${coordinates.lon}` : (place || "12.9716,77.5946") // Use coordinates when available, otherwise place name or default
+          purpose: selectedPreferences.purpose,
+          mood: selectedPreferences.mood,
+          budget: selectedPreferences.budget,
+          time: selectedPreferences.time,
+          transport: selectedPreferences.transport,
+          location: selectedPreferences.location,
+          user_location: coordinates ? `${coordinates.lat},${coordinates.lon}` : (place || "12.9716,77.5946"),
+          user_lat: coordinates?.lat || 12.9716,
+          user_lng: coordinates?.lon || 77.5946
         })
       });
 
