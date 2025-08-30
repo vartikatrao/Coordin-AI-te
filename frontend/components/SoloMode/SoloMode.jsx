@@ -1167,30 +1167,17 @@ const SoloMode = () => {
               </Text>
             )}
           </VStack>
-          {(coordinates || place) ? (
-            <Button 
-              size="sm" 
-              bg="#a60629" 
-              color="white" 
-              _hover={{ bg: "#8a0522" }}
-              onClick={generateProactiveRecommendations}
-              isLoading={isProactiveLoading}
-              loadingText="Refreshing"
-            >
-              Refresh
-            </Button>
-          ) : (
-            <Button 
-              size="sm" 
-              bg="#a60629" 
-              color="white" 
-              _hover={{ bg: "#8a0522" }}
-              onClick={handleLocationRequest}
-              leftIcon={<span>📍</span>}
-            >
-              Enable Location
-            </Button>
-          )}
+          <Button 
+            size="sm" 
+            bg="#a60629" 
+            color="white" 
+            _hover={{ bg: "#8a0522" }}
+            onClick={generateProactiveRecommendations}
+            isLoading={isProactiveLoading}
+            loadingText="Refreshing"
+          >
+            Refresh
+          </Button>
         </Flex>
         
         {isProactiveLoading ? (
@@ -1354,19 +1341,19 @@ const SoloMode = () => {
         ) : (
           <Card bg="gray.50" border="2px dashed" borderColor="gray.300">
             <CardBody textAlign="center" py={6}>
-              <Text fontSize="3xl" mb={3}>📍</Text>
-              <Text color="gray.500" mb={2}>No location-based recommendations yet</Text>
+              <Text fontSize="3xl" mb={3}>🎯</Text>
+              <Text color="gray.500" mb={2}>No personalized recommendations yet</Text>
               <Text fontSize="sm" color="gray.400" mb={4}>
-                Enable location access to get personalized suggestions based on your routines
+                Choose your mood above to get AI-powered recommendations based on your current feelings and routines
               </Text>
               <Button 
                 bg="#a60629" 
                 color="white" 
                 _hover={{ bg: "#8a0522" }}
-                onClick={handleLocationRequest}
+                onClick={generateProactiveRecommendations}
                 size="sm"
               >
-                Enable Location Access
+                Get Recommendations
               </Button>
             </CardBody>
           </Card>
