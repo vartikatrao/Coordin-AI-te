@@ -30,10 +30,7 @@ const Navbar = () => {
   const { user } = useSelector((store) => store.userReducer);
   const dispatch = useDispatch();
   const options = [
-    { name: "profile", link: "/profile?t=0" },
-    { name: "bookmarks", link: "/profile?t=4" },
-    { name: "recently viewed", link: "/profile?t=3" },
-    { name: "order history", link: "/profile?t=5" },
+    { name: "profile", link: "/profile" },
   ];
   const router = useRouter();
   useEffect(() => {

@@ -27,7 +27,7 @@ const Options = () => {
   ];
   return (
     <Flex
-      w={{ base: "100%", lg: "90%" }}
+      w={{ base: "90%", md: "85%", lg: "80%" }}
       h={"auto"}
       m={"auto"}
       mt={"50px"}

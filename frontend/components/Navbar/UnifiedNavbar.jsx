@@ -62,10 +62,7 @@ const UnifiedNavbar = ({ showModeNavigation = true, showLocationSearch = false }
   ];
 
   const userOptions = [
-    { name: "Profile", link: "/profile?t=0", icon: "👤" },
-    { name: "Bookmarks", link: "/profile?t=4", icon: "🔖" },
-    { name: "Recently Viewed", link: "/profile?t=3", icon: "👁️" },
-    { name: "Order History", link: "/profile?t=5", icon: "📋" },
+    { name: "Profile", link: "/profile", icon: "👤" },
   ];
 
   const handleNavigation = (path) => {

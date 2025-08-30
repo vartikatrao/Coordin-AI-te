@@ -37,9 +37,18 @@ import {
   ExternalLinkIcon,
   ChevronDownIcon,
 } from '@chakra-ui/icons';
+import { useSelector } from 'react-redux';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { db } from '@/firebase/firebase.config';
 import { groupModeAPI, soloModeAPI } from '@/services/api';
 
 const LocationFinder = ({ group }) => {
+  const { user } = useSelector((state) => state.userReducer);
   const [meetingType, setMeetingType] = useState('coffee');
   const [isLoading, setIsLoading] = useState(false);
   const [recommendations, setRecommendations] = useState([]);
@@ -442,6 +451,18 @@ const LocationFinder = ({ group }) => {
         title: 'No venues to poll',
         description: 'No recommended venues available for polling',
         status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    // Check if user is available
+    if (!user || !user.uid) {
+      toast({
+        title: 'User not found',
+        description: 'Please log in to create polls',
+        status: 'error',
         duration: 3000,
         isClosable: true,
       });

@@ -1,5 +1,5 @@
 import { GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, updateProfile } from "firebase/auth";
-import { AddAddressSuccess, AddBookmarkSuccess, AddOrderSuccess, AddRecentSuccess, RemoveBoookmarkSuccess, getUserDataSuccess } from "../slices/UserSlice"
+import { AddAddressSuccess, AddBookmarkSuccess, AddRecentSuccess, RemoveBoookmarkSuccess, getUserDataSuccess } from "../slices/UserSlice"
 import { Auth, db } from "@/firebase/firebase.config";
 import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
 
@@ -29,7 +29,6 @@ export const VerifyUser = async (dispatch) => {
                         address: [], 
                         bookmarks: [], 
                         recent: [], 
-                        orders: [], 
                         uid: user.uid, 
                         displayName: user.displayName, 
                         phoneNumber: user.phoneNumber, 
@@ -91,7 +90,7 @@ export const CreateUserEmail = async (name, email, password, phone, CustomToast,
             
             const updatedUser = { ...user, displayName: name, phoneNumber: phone }
             try {
-                await setDoc(doc(db, "users", user.uid), { address: [], bookmarks: [], recent: [], orders: [], uid: user.uid, displayName: name, phoneNumber: phone, email: user.email, photoURL: user.photoURL });
+                await setDoc(doc(db, "users", user.uid), { address: [], bookmarks: [], recent: [], uid: user.uid, displayName: name, phoneNumber: phone, email: user.email, photoURL: user.photoURL });
                 dispatch(getUserDataSuccess(updatedUser))
                 CustomToast("account created successfully", "", "success");
                 onClose();
@@ -189,18 +188,7 @@ export const AddAddressReq = async (id, add, dispatch, handleSuccess) => {
     }
 }
 
-export const AddOrderReq = async (id, add, dispatch, handleSuccess) => {
-    try {
-        const res = await getDoc(doc(db, "users", id));
-        if (res.exists()) {
-            await updateDoc(doc(db, "users", id), { orders: arrayUnion(add) });
-            dispatch(AddOrderSuccess(add))
-            handleSuccess()
-        }
-    } catch (error) {
-        console.log(error)
-    }
-}
+
 
 export const UpdateUserDetails = async (dispatch, details, id, Done) => {
     try {

@@ -7,7 +7,7 @@ import {
 import Banner from "./Banner";
 import Sidebar from "./Sidebar";
 import Address from "./Address";
-import Order from "./Order";
+
 import Recent from "./Recent";
 import Bookmarks from "./Bookmarks";
 
@@ -33,7 +33,7 @@ const Profile = () => {
       case 1:
         return <Address />;
       case 2:
-        return <Order />;
+        return <Address />;
       case 3:
         return <Recent />;
       case 4:

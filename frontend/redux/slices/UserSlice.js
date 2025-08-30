@@ -22,11 +22,9 @@ const UserSlice = createSlice({
         AddAddressSuccess: (state, action) => {
             state.user = { ...state.user, address: [...state.user.address, action.payload] }
         },
-        AddOrderSuccess: (state, action) => {
-            state.user = { ...state.user, orders: [...state.user.orders, action.payload] }
-        },
+
     }
 })
 
-export const { getUserDataSuccess, AddBookmarkSuccess, RemoveBoookmarkSuccess, AddRecentSuccess, AddAddressSuccess, AddOrderSuccess } = UserSlice.actions
+export const { getUserDataSuccess, AddBookmarkSuccess, RemoveBoookmarkSuccess, AddRecentSuccess, AddAddressSuccess } = UserSlice.actions
 export default UserSlice.reducer

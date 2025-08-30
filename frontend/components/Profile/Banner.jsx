@@ -13,10 +13,7 @@ const Banner = () => {
       alignItems={"center"}
       m={"auto"}
       h={{ base: "200px", md: "200px" }}
-      bgImage={
-        "https://firebasestorage.googleapis.com/v0/b/zomato-clone-c4414.appspot.com/o/profile-banner2.jpg?alt=media&token=1832ba80-166f-4dc3-bc2a-3a9420a37ea6"
-      }
-      backgroundSize={"cover"}
+      bg={"black"}
       gap={5}
       justifyContent={"space-between"}
     >
@@ -34,21 +31,6 @@ const Banner = () => {
         </Flex>
         <Box textAlign={"right"}>
           <EditModal />
-          <Flex alignItems={"center"} gap={"20px"}>
-            {new Array(3).fill(0).map((item, i) => {
-              return (
-                <Box
-                  key={i}
-                  color={"white"}
-                  fontSize={"20px"}
-                  textAlign={"center"}
-                >
-                  <Text>0</Text>
-                  <Text>Reviews</Text>
-                </Box>
-              );
-            })}
-          </Flex>
         </Box>
       </Flex>
     </Flex>
