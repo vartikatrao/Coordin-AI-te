@@ -20,7 +20,6 @@ const CommonNavbar = () => {
   const navItems = [
     { name: 'Solo Mode', path: '/solo-mode' },
     { name: 'Group Mode', path: '/group-mode' },
-    { name: 'Safety Mode', path: '/safety' },
     { name: 'Chat with AI', path: '/talk-to-coordinate' },
   ];
 

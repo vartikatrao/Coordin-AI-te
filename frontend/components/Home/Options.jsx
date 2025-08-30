@@ -19,12 +19,6 @@ const Options = () => {
       path: `/group-mode`,
     },
     {
-      title: "Safety Mode",
-      subTitle: "Safe Route Finder - Travel safer with intelligent routing",
-      imgURL: "/safety_mode.png",
-      path: `/${place}/restaurants`,
-    },
-    {
       title: "Talk to Coordinate",
       subTitle: "Get instant AI-powered assistance for all your coordination needs",
       imgURL: "/chat_mode.png",

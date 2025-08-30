@@ -58,7 +58,6 @@ const UnifiedNavbar = ({ showModeNavigation = true, showLocationSearch = false }
   const navItems = [
     { name: 'Solo Mode', path: '/solo-mode', description: 'Explore on your own' },
     { name: 'Group Mode', path: '/group-mode', description: 'Plan with friends' },
-    { name: 'Safety Mode', path: '/safety', description: 'Stay safe & secure' },
     { name: 'Chat with AI', path: '/talk-to-coordinate', description: 'Get AI assistance' },
   ];
 

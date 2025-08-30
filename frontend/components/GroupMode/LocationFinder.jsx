@@ -53,6 +53,90 @@ const LocationFinder = ({ group }) => {
   });
   const toast = useToast();
 
+  // Function to calculate distance between two coordinates (Haversine formula)
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of Earth in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c; // Distance in kilometers
+    return Math.round(distance * 1000); // Return distance in meters
+  };
+
+  // Dummy locations for group members (you can customize these based on your needs)
+  const getDummyLocations = () => {
+    const locations = [
+      { area: "Koramangala", coords: "12.9352,77.6245" },
+      { area: "Indiranagar", coords: "12.9784,77.6408" },
+      { area: "Whitefield", coords: "12.9698,77.7500" },
+      { area: "Jayanagar", coords: "12.9250,77.5850" },
+      { area: "Marathahalli", coords: "12.9591,77.6974" },
+      { area: "HSR Layout", coords: "12.9082,77.6476" },
+      { area: "Electronic City", coords: "12.8454,77.6600" },
+      { area: "Rajajinagar", coords: "12.9925,77.5548" },
+      { area: "Malleshwaram", coords: "13.0039,77.5749" },
+      { area: "Banashankari", coords: "12.9081,77.5570" },
+      { area: "Bellandur", coords: "12.9257,77.6747" },
+      { area: "Sarjapur", coords: "12.8963,77.6836" },
+      { area: "Yelahanka", coords: "13.1007,77.5963" },
+      { area: "RT Nagar", coords: "13.0181,77.5958" },
+      { area: "JP Nagar", coords: "12.9116,77.5712" }
+    ];
+    
+    // Build preferences string from filters
+    let preferencesText = `Enjoys ${meetingType} places`;
+    if (filters.atmosphere) {
+      preferencesText += `, likes ${filters.atmosphere} atmosphere`;
+    }
+    if (filters.features && filters.features.length > 0) {
+      preferencesText += `, needs ${filters.features.join(', ')}`;
+    }
+    
+    // Build constraints string from filters
+    let constraintsText = "";
+    if (filters.budget) {
+      const budgetLabel = budgetOptions.find(b => b.value === filters.budget)?.label || '';
+      constraintsText += budgetLabel;
+    }
+    if (filters.timePreference) {
+      constraintsText += constraintsText ? `, ${filters.timePreference}` : filters.timePreference;
+    }
+    if (!constraintsText) {
+      constraintsText = "Budget-friendly options preferred";
+    }
+    
+    // Assign locations to members with filter-based preferences
+    return group.members.map((member, index) => {
+      const location = locations[index % locations.length];
+      const [lat, lng] = location.coords.split(',').map(parseFloat);
+      return {
+        name: member.name || `Member ${index + 1}`,
+        age: 25, // Default age
+        gender: "Other", // Default gender
+        location: {
+          lat: lat,
+          lng: lng,
+          address: location.area + ", Bangalore"
+        },
+        preferences: {
+          meetingType: meetingType,
+          atmosphere: filters.atmosphere || '',
+          features: filters.features || [],
+          description: preferencesText
+        },
+        constraints: {
+          budget: filters.budget || '',
+          timePreference: filters.timePreference || '',
+          description: constraintsText
+        }
+      };
+    });
+  };
+
   // Filter options (same as Solo Mode)
   const budgetOptions = [
     { value: '', label: 'Any Budget' },
@@ -132,51 +216,36 @@ const LocationFinder = ({ group }) => {
     setIsLoading(true);
     
     try {
-      // Build query with group context and filters
-      let filterString = '';
+      // Get dummy locations for group members
+      const membersWithLocations = getDummyLocations();
+      
+      // Build meeting purpose with filters
+      let purposeDetails = `Find ${meetingType} places for group meetup`;
       if (filters.budget) {
         const budgetLabel = budgetOptions.find(b => b.value === filters.budget)?.label || '';
-        filterString += ` Budget: ${budgetLabel}.`;
+        purposeDetails += ` with ${budgetLabel} budget`;
       }
       if (filters.timePreference) {
-        filterString += ` Time preference: ${filters.timePreference}.`;
+        purposeDetails += ` for ${filters.timePreference}`;
       }
       if (filters.atmosphere) {
-        filterString += ` Atmosphere: ${filters.atmosphere}.`;
-      }
-      if (filters.categories) {
-        const categoryLabel = categoryOptions.find(c => c.value === filters.categories)?.label || '';
-        filterString += ` Looking for: ${categoryLabel}.`;
+        purposeDetails += ` with ${filters.atmosphere} atmosphere`;
       }
       if (filters.features && Array.isArray(filters.features) && filters.features.length > 0) {
-        filterString += ` Required features: ${filters.features.join(', ')}.`;
+        purposeDetails += ` with features: ${filters.features.join(', ')}`;
       }
-      if (filters.radius !== 2000) {
-        filterString += ` Search within ${filters.radius}m radius.`;
-      }
-
-      const query = `Find ${meetingType} places suitable for a group of ${group.members.length} people. Group members: ${group.members.map(m => m.name).join(', ')}.${filterString}`;
       
-      const response = await fetch('http://localhost:8000/api/v1/solo-page/preferences', {
+      // Call the group coordination backend
+      const response = await fetch('http://localhost:8000/api/v1/group/coordinate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: query,
-          user_location: "12.9716,77.5946", // Default to Bangalore
-          context: {
-            budget: filters.budget,
-            categories: filters.categories,
-            radius: filters.radius,
-            time_preference: filters.timePreference,
-            atmosphere: filters.atmosphere,
-            group_type: 'group',
-            features: filters.features,
-            price: filters.budget,
-            group_size: group.members.length
-          }
-        })
+          members: membersWithLocations,
+          meeting_purpose: purposeDetails,
+          quick_mode: false
+        }),
       });
 
       if (!response.ok) {
@@ -184,30 +253,113 @@ const LocationFinder = ({ group }) => {
       }
 
       const result = await response.json();
+      console.log('🔍 Full backend response:', JSON.stringify(result, null, 2));
       
-      if (result.status === 'success') {
-        setRecommendations([{
-          type: 'group',
-          suggestions: result.data,
-          meetingType: meetingType,
-          groupSize: group.members.length
-        }]);
+      if (result.status === 'success' && result.results) {
+        // Log successful coordination for debugging
+        if (result.results.intent) {
+          console.log('🎯 Group Intent Analysis:', result.results.intent);
+          console.log('📍 Fair coordinates:', result.results.fair_coords);
+          console.log('🛡️ Safety assessment:', result.results.safety);
+        }
         
-        toast({
-          title: 'Locations Found!',
-          description: 'Found perfect places for your group meetup',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
+        // Set venues from Foursquare search
+        if (result.results.venues && result.results.venues.length > 0) {
+          console.log('🏢 Raw venues from backend:', result.results.venues);
+          console.log('🎨 Personalized data:', result.results.personalized);
+          console.log('🛡️ Safety data:', result.results.safety);
+          
+          // Get member locations for distance calculations
+          const membersWithLocations = getDummyLocations();
+          console.log('👥 Group members with coordinates:', membersWithLocations);
+          
+          const venueRecommendations = {
+            places: result.results.venues.map(venue => {
+              // Calculate distances from each group member to this venue
+              const memberDistances = membersWithLocations.map(member => {
+                // Extract coordinates from member data structure
+                let memberLat, memberLng;
+                if (member.location && typeof member.location === 'object' && member.location.lat) {
+                  memberLat = member.location.lat;
+                  memberLng = member.location.lng;
+                } else if (typeof member.location === 'string') {
+                  [memberLat, memberLng] = member.location.split(',').map(parseFloat);
+                } else {
+                  // Fallback to Bangalore center
+                  memberLat = 12.9716;
+                  memberLng = 77.5946;
+                }
+                  
+                // Use venue coordinates if available, otherwise use realistic coordinates for known venues
+                let venueLat, venueLng;
+                if (venue.geocodes?.main?.latitude && venue.geocodes?.main?.longitude) {
+                  venueLat = venue.geocodes.main.latitude;
+                  venueLng = venue.geocodes.main.longitude;
+                } else {
+                  // Use realistic coordinates for known venues, otherwise default to Bangalore center
+                  const venueName = (venue.name || '').toLowerCase();
+                  if (venueName.includes('mtr') || venueName.includes('mavalli')) {
+                    venueLat = 12.9343; venueLng = 77.5847; // MTR Lalbagh Road
+                  } else if (venueName.includes('truffles')) {
+                    venueLat = 12.9784; venueLng = 77.6408; // Truffles Indiranagar
+                  } else if (venueName.includes('black pearl')) {
+                    venueLat = 12.9354; venueLng = 77.6201; // Black Pearl Koramangala
+                  } else {
+                    venueLat = 12.9716; venueLng = 77.5946; // Default Bangalore center
+                  }
+                }
+                
+                const distance = calculateDistance(memberLat, memberLng, venueLat, venueLng);
+                
+                console.log(`📏 Distance from ${member.name} (${memberLat}, ${memberLng}) to ${venue.name || 'venue'} (${venueLat}, ${venueLng}): ${distance}m`);
+                
+                return {
+                  memberName: member.name,
+                  distance: distance
+                };
+              });
+              
+              return {
+                name: venue.name || 'Venue',
+                location: {
+                  formatted_address: venue.location?.formatted_address || venue.address || 'Address not available'
+                },
+                distance: venue.distance || 100, // Keep original distance for fallback
+                memberDistances: memberDistances, // Add individual distances
+                categories: venue.categories || [{ name: meetingType }],
+                rating: venue.rating || 4.0,
+                price: venue.price || 2,
+                fsq_id: venue.fsq_id,
+                website: venue.website,
+                tel: venue.tel
+              };
+            }),
+            personalized: result.results.personalized || [],
+            safety: result.results.safety || {},
+            groupMembers: membersWithLocations // Store member info for reference
+          };
+          setRecommendations([venueRecommendations]);
+        } else {
+          setRecommendations([]);
+        }
+        
+        // Note: Personalized explanations are available in result.results.personalized if needed for future features
       } else {
-        throw new Error('No locations found');
+        throw new Error(result.error || 'No locations found');
       }
+      
+      toast({
+        title: 'Group Locations Found!',
+        description: `Found ${result.results?.venues?.length || 0} optimal meeting spots for your group`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (error) {
       console.error('Error finding locations:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to find locations',
+        description: error.message || 'Failed to find group meeting locations',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -221,12 +373,15 @@ const LocationFinder = ({ group }) => {
   const parseLocationRecommendations = (recommendationData) => {
     try {
       const locations = [];
+      console.log('🔍 Parsing recommendation data:', recommendationData);
       
       // Check for structured places data from backend
       if (recommendationData && recommendationData.places && Array.isArray(recommendationData.places)) {
+        console.log('✅ Found places array:', recommendationData.places);
         return recommendationData.places.map((place, index) => ({
           name: place.name || 'Unknown Place',
           distance: place.distance ? `${place.distance}m` : 'Near you',
+          memberDistances: place.memberDistances || [], // Preserve member distances
           cuisine: place.categories && place.categories[0] ? place.categories[0].name : 'Restaurant',
           rating: place.rating ? Number(place.rating).toFixed(1) : '',
           priceLevel: place.price ? '₹'.repeat(place.price) : '',
@@ -281,6 +436,101 @@ const LocationFinder = ({ group }) => {
     window.open(mapsUrl, '_blank');
   };
 
+  const createPollForAllVenues = async (locations, recData) => {
+    if (!locations || locations.length === 0) {
+      toast({
+        title: 'No venues to poll',
+        description: 'No recommended venues available for polling',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    try {
+      // Create poll options from all recommended venues
+      const pollOptions = locations.map((location, index) => ({
+        id: `venue_${index}`,
+        text: `📍 ${location.name}`,
+        venue: {
+          name: location.name,
+          address: location.address,
+          rating: location.rating,
+          priceLevel: location.priceLevel,
+          cuisine: location.cuisine,
+          memberDistances: location.memberDistances,
+          description: location.description
+        },
+        votes: []
+      }));
+
+      // Add an "Other suggestions" option
+      pollOptions.push({
+        id: 'other',
+        text: '💭 Other suggestions',
+        venue: null,
+        votes: []
+      });
+
+      const pollData = {
+        type: 'location_poll',
+        question: `Where should we meet? (${meetingType} places)`,
+        meetingType: meetingType,
+        searchFilters: {
+          budget: filters.budget,
+          atmosphere: filters.atmosphere,
+          features: filters.features,
+          timePreference: filters.timePreference
+        },
+        options: pollOptions,
+        venues: locations, // Store all venue data
+        safetyInfo: recData.safety,
+        createdBy: {
+          uid: user.uid,
+          name: user.displayName,
+          avatar: user.photoURL
+        },
+        createdAt: serverTimestamp(),
+        isActive: true,
+        totalVotes: 0
+      };
+
+      const pollDocRef = await addDoc(collection(db, 'groups', group.id, 'polls'), pollData);
+      
+      // Update the poll with its own ID for easier reference
+      await updateDoc(pollDocRef, { id: pollDocRef.id });
+      
+      // Also add a system message to the chat
+      await addDoc(collection(db, 'groups', group.id, 'messages'), {
+        userId: 'system',
+        userName: 'System',
+        userAvatar: '',
+        message: `${user.displayName} created a poll: "${pollData.question}" with ${locations.length} venue options`,
+        timestamp: serverTimestamp(),
+        isSystemMessage: true,
+        pollData: pollData
+      });
+
+      toast({
+        title: 'Poll Created!',
+        description: `Created a poll with ${locations.length} venue options`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error creating poll:', error);
+      toast({
+        title: 'Error creating poll',
+        description: error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   return (
     <Box 
       h="100%" 
@@ -304,23 +554,23 @@ const LocationFinder = ({ group }) => {
         {/* Header */}
         <Box textAlign="center">
           <Heading size="lg" mb={2} color="purple.600">
-            <ViewIcon mr={2} />
+        <ViewIcon mr={2} />
             Find Group Location
-          </Heading>
+      </Heading>
           <Text color="gray.600">
             Choose what type of place you're looking for and apply filters
           </Text>
         </Box>
-
-        {/* Group Info */}
+      
+      {/* Group Info */}
         <Card>
-          <CardBody>
+        <CardBody>
             <VStack align="stretch" spacing={3}>
-              <HStack justify="space-between">
-                <Text fontWeight="bold">Group: {group.name}</Text>
-                <Badge colorScheme="purple">{group.members.length} members</Badge>
-              </HStack>
-              
+            <HStack justify="space-between">
+              <Text fontWeight="bold">Group: {group.name}</Text>
+              <Badge colorScheme="purple">{group.members.length} members</Badge>
+            </HStack>
+            
               <HStack spacing={2}>
                 {group.members.slice(0, 4).map((member, index) => (
                   <Avatar key={index} size="xs" name={member.name} src={member.avatar} />
@@ -328,10 +578,10 @@ const LocationFinder = ({ group }) => {
                 {group.members.length > 4 && (
                   <Text fontSize="xs" color="gray.500">+{group.members.length - 4} more</Text>
                 )}
-              </HStack>
-            </VStack>
-          </CardBody>
-        </Card>
+            </HStack>
+          </VStack>
+        </CardBody>
+      </Card>
 
         {/* Meeting Type Selection */}
         <Card>
@@ -365,8 +615,8 @@ const LocationFinder = ({ group }) => {
               </Button>
             </Flex>
           </CardHeader>
-          <CardBody>
-            <VStack spacing={4} align="stretch">
+        <CardBody>
+          <VStack spacing={4} align="stretch">
               {/* Budget Filter */}
               <FormControl>
                 <FormLabel fontSize="sm" fontWeight="semibold">Budget Range</FormLabel>
@@ -418,7 +668,7 @@ const LocationFinder = ({ group }) => {
               {/* Atmosphere */}
               <FormControl>
                 <FormLabel fontSize="sm" fontWeight="semibold">Atmosphere</FormLabel>
-                <Select 
+                <Select
                   value={filters.atmosphere} 
                   onChange={(e) => handleFilterChange('atmosphere', e.target.value)}
                   placeholder="Select atmosphere"
@@ -430,7 +680,7 @@ const LocationFinder = ({ group }) => {
                   ))}
                 </Select>
               </FormControl>
-
+              
               {/* Search Radius */}
               <FormControl>
                 <FormLabel fontSize="sm" fontWeight="semibold">
@@ -473,16 +723,16 @@ const LocationFinder = ({ group }) => {
             </VStack>
           </CardBody>
         </Card>
-
+            
         {/* Find Location Button */}
-        <Button
-          colorScheme="purple"
-          onClick={findOptimalLocations}
-          isLoading={isLoading}
+            <Button
+              colorScheme="purple"
+              onClick={findOptimalLocations}
+              isLoading={isLoading}
           loadingText="Finding locations..."
-          leftIcon={<SearchIcon />}
-          size="lg"
-        >
+              leftIcon={<SearchIcon />}
+              size="lg"
+            >
           Find Perfect Locations
         </Button>
 
@@ -497,38 +747,119 @@ const LocationFinder = ({ group }) => {
         ) : recommendations.length > 0 ? (
           <VStack spacing={4} align="stretch">
             {recommendations.map((rec, index) => {
-              const locations = parseLocationRecommendations(rec.suggestions || rec);
+              const locations = parseLocationRecommendations(rec);
+              console.log('🏗️ Parsed locations for UI:', locations);
               
               return (
                 <Box key={index}>
-                  <Heading size="md" mb={4} color="purple.600">
-                    Recommended Locations ({locations.length} found)
-                  </Heading>
+                  <Flex justify="space-between" align="center" mb={4}>
+                    <Heading size="md" color="purple.600">
+                      Recommended Locations ({locations.length} found)
+                    </Heading>
+                    <Button
+                      colorScheme="green"
+                      leftIcon={<span>📊</span>}
+                      onClick={() => createPollForAllVenues(locations, rec)}
+                      size="sm"
+                      isDisabled={!locations || locations.length === 0}
+                    >
+                      Create Poll ({locations.length} options)
+                    </Button>
+                  </Flex>
+                  
+                  {/* Safety Assessment Section */}
+                  {rec.safety && rec.safety.safety_level && (
+                    <Card mb={4} bg="blue.50" border="1px solid" borderColor="blue.200">
+                      <CardBody>
+                        <VStack align="start" spacing={3}>
+                          <HStack>
+                            <Text fontSize="lg" fontWeight="bold" color="blue.600">
+                              🛡️ Safety Assessment
+                            </Text>
+                            <Badge 
+                              colorScheme={rec.safety.safety_score >= 0.8 ? 'green' : rec.safety.safety_score >= 0.6 ? 'yellow' : 'red'}
+                              fontSize="sm"
+                            >
+                              {rec.safety.safety_level} ({Math.round(rec.safety.safety_score * 100)}%)
+                            </Badge>
+                          </HStack>
+                          
+                          {rec.safety.recommendations && rec.safety.recommendations.length > 0 && (
+                            <Box>
+                              <Text fontSize="sm" fontWeight="semibold" color="blue.700" mb={1}>
+                                Safety Tips:
+                              </Text>
+                              <VStack align="start" spacing={1}>
+                                {rec.safety.recommendations.map((tip, tipIndex) => (
+                                  <Text key={tipIndex} fontSize="sm" color="blue.600">
+                                    • {tip}
+                                  </Text>
+                                ))}
+                              </VStack>
+                            </Box>
+                          )}
+                          
+                          {rec.safety.safety_details && (
+                            <HStack spacing={4} fontSize="sm" color="blue.600">
+                              {rec.safety.safety_details.emergency_services && (
+                                <Text>🚨 {rec.safety.safety_details.emergency_services} emergency services nearby</Text>
+                              )}
+                              {rec.safety.safety_details.open_venues_nearby && (
+                                <Text>🏪 {rec.safety.safety_details.open_venues_nearby} open venues nearby</Text>
+                              )}
+                            </HStack>
+                          )}
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  )}
                   
                   {locations.length > 0 ? (
                     <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                      {locations.map((location, locIndex) => (
-                        <Card 
-                          key={locIndex} 
-                          cursor="pointer" 
-                          _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
-                          onClick={() => openInGoogleMaps(location.name)}
-                        >
-                          <CardBody>
-                            <VStack align="start" spacing={3}>
-                              <HStack justify="space-between" w="100%">
-                                <Text fontWeight="bold" fontSize="lg" color="purple.600">
-                                  {location.name}
-                                </Text>
-                                <Text fontSize="xl">📍</Text>
-                              </HStack>
+                      {locations.map((location, locIndex) => {
+                        // Find personalized explanations for this venue
+                        const personalizedForVenue = rec.personalized?.find(p => 
+                          p.venue === location.name || 
+                          (location.name && p.venue && p.venue.toLowerCase().includes(location.name.toLowerCase()))
+                        );
+                        
+                        return (
+                          <Card 
+                            key={locIndex} 
+                            cursor="pointer" 
+                            _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                            onClick={() => openInGoogleMaps(location.name)}
+                          >
+                            <CardBody>
+                              <VStack align="start" spacing={3}>
+                                <HStack justify="space-between" w="100%">
+                                  <Text fontWeight="bold" fontSize="lg" color="purple.600">
+                                    {location.name}
+                                  </Text>
+                                  <Text fontSize="xl">📍</Text>
+                                </HStack>
                               
                               <VStack align="start" spacing={2} w="100%">
-                                {location.distance && (
-                                  <HStack>
-                                    <Text fontSize="sm" color="gray.500" fontWeight="semibold">Distance:</Text>
-                                    <Text fontSize="sm">{location.distance}</Text>
-                                  </HStack>
+                                {/* Individual distances from each group member */}
+                                {location.memberDistances && location.memberDistances.length > 0 && (
+                                  <Box>
+                                    <Text fontSize="sm" color="gray.500" fontWeight="semibold" mb={1}>Distances:</Text>
+                                    <VStack align="start" spacing={1} ml={2}>
+                                      {location.memberDistances.map((memberDist, distIndex) => (
+                                        <HStack key={distIndex} spacing={2}>
+                                          <Text fontSize="xs" color="gray.600" fontWeight="medium">
+                                            {memberDist.memberName}:
+                                          </Text>
+                                          <Text fontSize="xs" color="gray.700">
+                                            {memberDist.distance > 1000 
+                                              ? `${(memberDist.distance / 1000).toFixed(1)}km away`
+                                              : `${memberDist.distance}m away`
+                                            }
+                                          </Text>
+                                        </HStack>
+                                      ))}
+                                    </VStack>
+                                  </Box>
                                 )}
                                 {location.cuisine && (
                                   <HStack>
@@ -555,6 +886,27 @@ const LocationFinder = ({ group }) => {
                                 )}
                               </VStack>
 
+                              {/* Personalized Explanations */}
+                              {personalizedForVenue && personalizedForVenue.why_for_each && (
+                                <Box w="100%" bg="green.50" p={3} borderRadius="md" border="1px solid" borderColor="green.200">
+                                  <Text fontSize="sm" fontWeight="semibold" color="green.700" mb={2}>
+                                    🎨 Why this works for your group:
+                                  </Text>
+                                  <VStack align="start" spacing={1}>
+                                    {Object.entries(personalizedForVenue.why_for_each).map(([memberName, reasons]) => (
+                                      <Box key={memberName}>
+                                        <Text fontSize="xs" fontWeight="bold" color="green.600">
+                                          {memberName}:
+                                        </Text>
+                                        <Text fontSize="xs" color="green.600" ml={2}>
+                                          {Array.isArray(reasons) ? reasons.join(', ') : reasons}
+                                        </Text>
+                                      </Box>
+                                    ))}
+                                  </VStack>
+                                </Box>
+                              )}
+
                               <Button 
                                 size="sm" 
                                 colorScheme="purple" 
@@ -569,7 +921,8 @@ const LocationFinder = ({ group }) => {
                             </VStack>
                           </CardBody>
                         </Card>
-                      ))}
+                        );
+                      })}
                     </SimpleGrid>
                   ) : (
                     <Card bg="gray.50">
@@ -589,10 +942,10 @@ const LocationFinder = ({ group }) => {
               <Text color="gray.600" mb={2}>Ready to find the perfect meeting spot</Text>
               <Text fontSize="sm" color="gray.500">
                 Select your preferences above and click "Find Perfect Locations"
-              </Text>
+          </Text>
             </CardBody>
           </Card>
-        )}
+      )}
       </VStack>
     </Box>
   );

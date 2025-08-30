@@ -211,27 +211,33 @@ const TalkToCoordinate = () => {
   // Function to handle example button clicks - send directly to backend
   const handleExampleClick = async (exampleText) => {
     // Create conversation only when first message is sent
-    if (!currentConversationId) {
-      const title = await generateConversationTitle(exampleText);
-      const conversationId = await createNewConversation(exampleText, title);
+    let conversationId = currentConversationId;
+    if (!conversationId) {
+      // Use quick local title generation first, then update later
+      const quickTitle = exampleText.length > 50 ? exampleText.substring(0, 47) + '...' : exampleText;
+      conversationId = await createNewConversation(exampleText, quickTitle);
       setCurrentConversationId(conversationId);
-    }
-
-    // Set conversation title if this is the first message
-    if (chatHistory.length === 0) {
-      const title = await generateConversationTitle(exampleText);
-      setConversationTitle(title);
+      setConversationTitle(quickTitle);
+      
+      // Generate better title in background
+      generateConversationTitle(exampleText).then(betterTitle => {
+        setConversationTitle(betterTitle);
+        updateDoc(doc(db, 'conversations', conversationId), { title: betterTitle });
+      });
     }
 
     const userMessage = { 
       type: 'user', 
       content: exampleText, 
       timestamp: new Date(),
-      conversationId: currentConversationId,
+      conversationId: conversationId,
       userId: user.uid
     };
 
-    // Add user message to database only - Firebase listener will update local state
+    // Add user message to local state immediately for instant UI response
+    setChatHistory(prev => [...prev, userMessage]);
+
+    // Add user message to database in background
     try {
       await addDoc(collection(db, 'messages'), {
         ...userMessage,
@@ -239,6 +245,8 @@ const TalkToCoordinate = () => {
       });
     } catch (error) {
       console.error('Error saving user message:', error);
+      // Remove from local state if save failed
+      setChatHistory(prev => prev.filter(msg => msg !== userMessage));
       return; // Stop if user message fails to save
     }
 
@@ -304,27 +312,34 @@ const TalkToCoordinate = () => {
     if (!messageToSend.trim()) return;
 
     // Create conversation only when first message is sent
-    if (!currentConversationId) {
-      const title = await generateConversationTitle(messageToSend);
-      const conversationId = await createNewConversation(messageToSend, title);
+    let conversationId = currentConversationId;
+    if (!conversationId) {
+      // Use quick local title generation first, then update later
+      const quickTitle = messageToSend.length > 50 ? messageToSend.substring(0, 47) + '...' : messageToSend;
+      conversationId = await createNewConversation(messageToSend, quickTitle);
       setCurrentConversationId(conversationId);
-    }
-
-    // Set conversation title if this is the first message
-    if (chatHistory.length === 0) {
-      const title = await generateConversationTitle(messageToSend);
-      setConversationTitle(title);
+      setConversationTitle(quickTitle);
+      
+      // Generate better title in background
+      generateConversationTitle(messageToSend).then(betterTitle => {
+        setConversationTitle(betterTitle);
+        updateDoc(doc(db, 'conversations', conversationId), { title: betterTitle });
+      });
     }
 
     const userMessage = { 
       type: 'user', 
       content: messageToSend, 
       timestamp: new Date(),
-      conversationId: currentConversationId,
+      conversationId: conversationId,
       userId: user.uid
     };
 
-    // Add user message to database only - Firebase listener will update local state
+    // Add user message to local state immediately for instant UI response
+    setChatHistory(prev => [...prev, userMessage]);
+    setQuery(''); // Clear input immediately
+
+    // Add user message to database in background
     try {
       await addDoc(collection(db, 'messages'), {
         ...userMessage,
@@ -332,6 +347,8 @@ const TalkToCoordinate = () => {
       });
     } catch (error) {
       console.error('Error saving user message:', error);
+      // Remove from local state if save failed
+      setChatHistory(prev => prev.filter(msg => msg !== userMessage));
       return; // Stop if user message fails to save
     }
 
@@ -388,7 +405,6 @@ const TalkToCoordinate = () => {
       });
     } finally {
       setIsLoading(false);
-      setQuery('');
     }
   };
 

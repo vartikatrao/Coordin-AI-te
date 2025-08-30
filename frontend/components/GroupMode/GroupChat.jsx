@@ -40,6 +40,7 @@ import {
   AddIcon,
 } from '@chakra-ui/icons';
 import { useSelector } from 'react-redux';
+import PollComponent from './PollComponent';
 import { 
   collection, 
   doc, 
@@ -57,6 +58,7 @@ import { db } from '@/firebase/firebase.config';
 const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
   const { user } = useSelector((state) => state.userReducer);
   const [messages, setMessages] = useState([]);
+  const [polls, setPolls] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [typingUsers, setTypingUsers] = useState([]);
   const [editedGroupName, setEditedGroupName] = useState('');
@@ -97,12 +99,12 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
   }
 
   useEffect(() => {
-    const q = query(
+    const messagesQuery = query(
       collection(db, 'groups', group.id, 'messages'),
       orderBy('timestamp', 'asc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
       const messages = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -111,7 +113,24 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
       setMessages(messages);
     });
 
-    return () => unsubscribe();
+    // Listen for polls
+    const pollsQuery = query(
+      collection(db, 'groups', group.id, 'polls'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribePolls = onSnapshot(pollsQuery, (snapshot) => {
+      const polls = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setPolls(polls);
+    });
+
+    return () => {
+      unsubscribeMessages();
+      unsubscribePolls();
+    };
   }, [group.id]);
 
   useEffect(() => {
@@ -324,18 +343,34 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
       <Box p={4} borderBottom="1px solid" borderColor="gray.200" bg="white">
         <Flex justify="space-between" align="center">
           <Flex align="center">
-            <Avatar
-              src={group.members[0]?.avatar || 'https://bit.ly/default-avatar'}
-              name={group.name || 'Group'}
-              size="md"
-              mr={3}
-            />
+            {/* Show up to 3 member avatars */}
+            <HStack spacing={-2} mr={3}>
+              {group.members.slice(0, 3).map((member, index) => (
+                <Avatar
+                  key={member.id || member.uid || index}
+                  src={member.avatar || member.photoURL || 'https://bit.ly/default-avatar'}
+                  name={member.name || member.displayName || `Member ${index + 1}`}
+                  size="sm"
+                  border="2px solid white"
+                />
+              ))}
+              {group.members.length > 3 && (
+                <Avatar
+                  size="sm"
+                  name={`+${group.members.length - 3}`}
+                  bg="gray.500"
+                  color="white"
+                  border="2px solid white"
+                />
+              )}
+            </HStack>
             <Box>
               <Heading size="md" color="purple.600">
                 {group.name || 'Group'}
               </Heading>
               <Text fontSize="sm" color="gray.500">
-                {group.members.length || 0} members
+                {group.members.slice(0, 2).map(m => m.name || m.displayName || 'Member').join(', ')}
+                {group.members.length > 2 && ` +${group.members.length - 2} more`}
               </Text>
             </Box>
           </Flex>
@@ -368,6 +403,56 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
       {/* Messages Area */}
       <Box flex={1} overflowY="auto" p={4} bg="gray.50">
         <VStack spacing={4} align="stretch">
+          {/* Polls Section */}
+          {polls && polls.length > 0 && (
+            <Box>
+              {/* Active Polls */}
+              {polls.filter(poll => poll.isActive !== false).length > 0 && (
+                <>
+                  <Text fontSize="sm" color="blue.600" fontWeight="semibold" mb={3} textAlign="center">
+                    📊 Active Polls
+                  </Text>
+                  <VStack spacing={3} mb={4}>
+                    {polls
+                      .filter(poll => poll.isActive !== false)
+                      .map((poll) => (
+                        <PollComponent
+                          key={poll.id}
+                          pollData={poll}
+                          groupId={group.id}
+                          currentUser={user}
+                          isOwnPoll={poll.createdBy?.uid === user.uid}
+                        />
+                      ))}
+                  </VStack>
+                </>
+              )}
+              
+              {/* Recent Closed Polls */}
+              {polls.filter(poll => poll.isActive === false).length > 0 && (
+                <>
+                  <Text fontSize="xs" color="gray.500" fontWeight="semibold" mb={2} textAlign="center">
+                    📋 Recent Poll Results
+                  </Text>
+                  <VStack spacing={2} mb={4}>
+                    {polls
+                      .filter(poll => poll.isActive === false)
+                      .slice(0, 2) // Show only last 2 closed polls
+                      .map((poll) => (
+                        <PollComponent
+                          key={poll.id}
+                          pollData={poll}
+                          groupId={group.id}
+                          currentUser={user}
+                          isOwnPoll={poll.createdBy?.uid === user.uid}
+                        />
+                      ))}
+                  </VStack>
+                </>
+              )}
+            </Box>
+          )}
+          
           {messages && Array.isArray(messages) && messages.length > 0 ? (
             messages.map((message) => (
               <Box

@@ -48,15 +48,14 @@ class SafetyAssessmentTool(BaseTool):
 
         safety_score = max(0.1, min(1.0, safety_score))
 
+        # Generate location-specific recommendations
+        recommendations = self._generate_location_specific_recommendations(lat, lng, is_night, venues_data)
+        
         result = {
             "status": "success",
             "safety_score": round(safety_score, 2),
             "safety_level": level,
-            "recommendations": [
-                "Travel in groups",
-                "Use well-lit routes",
-                "Share location with contacts"
-            ],
+            "recommendations": recommendations,
             "safety_details": {
                 "emergency_services": emergency_count,
                 "open_venues_nearby": open_venues,
@@ -69,6 +68,74 @@ class SafetyAssessmentTool(BaseTool):
             }
         }
         return json.dumps(result, indent=2)
+
+    def _generate_location_specific_recommendations(self, lat: float, lng: float, is_night: bool, venues_data: str) -> list:
+        """Generate location-specific safety recommendations"""
+        recommendations = []
+        
+        # Parse venues if provided
+        venues = []
+        try:
+            venues = json.loads(venues_data) if venues_data else []
+        except:
+            pass
+        
+        # Base recommendations
+        recommendations.append("Travel in groups")
+        
+        # Time-based recommendations
+        if is_night:
+            recommendations.extend([
+                "Use well-lit main roads",
+                "Share your live location with friends",
+                "Stay in populated areas",
+                "Keep emergency contacts handy"
+            ])
+        else:
+            recommendations.extend([
+                "Share your location with contacts",
+                "Use well-known routes"
+            ])
+        
+        # Area-specific recommendations based on coordinates
+        area_name = self._get_area_name(lat, lng)
+        
+        if "koramangala" in area_name.lower():
+            recommendations.append("Koramangala is generally safe - stick to Forum Mall area")
+        elif "indiranagar" in area_name.lower():
+            recommendations.append("Indiranagar 100 Feet Road is well-monitored")
+        elif "whitefield" in area_name.lower():
+            recommendations.append("Whitefield: use main Phoenix MarketCity area")
+        elif "hsr" in area_name.lower():
+            recommendations.append("HSR Layout: stay on main 27th Main Road")
+        elif "electronic city" in area_name.lower():
+            recommendations.append("Electronic City: use Phase 1 main roads")
+        else:
+            recommendations.append("Stick to main roads and commercial areas")
+        
+        # Venue-specific recommendations
+        if venues:
+            mall_venues = [v for v in venues if any(word in str(v.get('name', '')).lower() for word in ['mall', 'forum', 'phoenix', 'ub city'])]
+            if mall_venues:
+                recommendations.append("Mall locations have good security - use main entrances")
+        
+        return recommendations
+    
+    def _get_area_name(self, lat: float, lng: float) -> str:
+        """Get area name based on coordinates"""
+        # Simple mapping based on Bangalore coordinates
+        if 12.92 <= lat <= 12.94 and 77.61 <= lng <= 77.63:
+            return "Koramangala"
+        elif 12.97 <= lat <= 12.99 and 77.63 <= lng <= 77.65:
+            return "Indiranagar"
+        elif 12.96 <= lat <= 12.98 and 77.74 <= lng <= 77.76:
+            return "Whitefield"
+        elif 12.90 <= lat <= 12.92 and 77.64 <= lng <= 77.66:
+            return "HSR Layout"
+        elif 12.84 <= lat <= 12.86 and 77.65 <= lng <= 77.67:
+            return "Electronic City"
+        else:
+            return "Bangalore"
 
     # ✅ Wrapper
     def assess_area(self, lat: float, lng: float, meeting_time: str = None) -> dict:

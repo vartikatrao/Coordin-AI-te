@@ -1661,7 +1661,16 @@ const SoloMode = () => {
                             <VStack align="start" spacing={3}>
                               <HStack justify="space-between" w="100%">
                                 <Text fontWeight="bold" fontSize="lg" color="#a60629">{location.name}</Text>
-                                <Button size="sm" bg="#a60629" color="white" _hover={{ bg: "#8a0522" }}>
+                                <Button 
+                                  size="sm" 
+                                  bg="#a60629" 
+                                  color="white" 
+                                  _hover={{ bg: "#8a0522" }}
+                                  as="a"
+                                  href={`https://www.google.com/search?q=${encodeURIComponent(location.name + ' ' + (location.address || 'restaurant'))}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
                                   View
                                 </Button>
                               </HStack>

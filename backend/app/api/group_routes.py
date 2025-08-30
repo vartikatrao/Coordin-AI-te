@@ -99,10 +99,10 @@ async def coordinate_group_meetup(
         logger.info(f"⚡ Quick mode: {request.quick_mode}")
         
         # Process the coordination request
-        coordination_results = group_agent.coordinate_group_meetup(
+        coordination_results = await group_agent.coordinate_group_meetup(
             members=members_dict,
-            meeting_purpose=request.meeting_purpose or "",
-            quick_mode=request.quick_mode or False
+            meeting_time=None,  # Can be extended later to support specific meeting times
+            meeting_purpose=request.meeting_purpose
         )
         
         # Calculate processing time

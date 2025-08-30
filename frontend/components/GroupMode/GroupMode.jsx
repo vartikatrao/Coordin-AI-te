@@ -291,9 +291,7 @@ const GroupMode = () => {
         return (
           <Box>
             <Heading size="lg" mb={4}>My Groups</Heading>
-            <Text color="gray.600" mb={6}>
-              Select a group from the sidebar or create a new one
-            </Text>
+
             {groups.length === 0 ? (
               <Box textAlign="center" py={10}>
                 <Text color="gray.500" fontSize="lg">No groups yet</Text>
@@ -356,9 +354,7 @@ const GroupMode = () => {
         return (
           <Box>
             <Heading size="lg" mb={4}>My Groups</Heading>
-            <Text color="gray.600" mb={6}>
-              Select a group from the sidebar or create a new one
-            </Text>
+
             {groups.length === 0 ? (
               <Box textAlign="center" py={10}>
                 <Text color="gray.500" fontSize="lg">No groups yet</Text>
