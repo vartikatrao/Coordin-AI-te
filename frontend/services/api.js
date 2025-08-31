@@ -88,83 +88,8 @@ export const soloModeAPI = {
 
 // Group Mode API calls
 export const groupModeAPI = {
-  // Find optimal group meetup location
-  async findGroupMeetup(groupMembers, purpose, groupSize, searchQuery = '') {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ai/group-meetup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          group_members: groupMembers,
-          purpose,
-          group_size: groupSize,
-          search_query: searchQuery
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Group meetup API error:', error);
-      throw error;
-    }
-  },
-
-  // Get AI-powered solo recommendations
-  async getSoloRecommendations(preferences, currentLocation, timeOfDay) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ai/solo-recommendations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          preferences,
-          current_location: currentLocation,
-          time_of_day: timeOfDay
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Solo recommendations API error:', error);
-      throw error;
-    }
-  },
-
-  // Generate proactive alerts
-  async generateProactiveAlert(userContext, currentLocation) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ai/proactive-alert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          context: userContext,
-          location: currentLocation
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Proactive alert API error:', error);
-      throw error;
-    }
-  }
+  // Note: AI-powered group meetup functionality removed
+  // Your existing group coordination features remain available via /api/v1/group/*
 };
 
 // Health check
