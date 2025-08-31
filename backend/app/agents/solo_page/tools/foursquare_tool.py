@@ -751,21 +751,47 @@ class FoursquareTool(BaseTool):
             if "results" in result and result["results"]:
                 formatted_results = []
                 for place in result["results"]:
-                    formatted_results.append({
+                    # Format categories to ensure proper JSON structure
+                    categories = []
+                    for cat in place.get("categories", []):
+                        categories.append({
+                            "id": str(cat.get("id", "")),  # Convert ID to string to ensure valid JSON
+                            "name": cat.get("name", ""),
+                            "icon": cat.get("icon", {})
+                        })
+                    
+                    formatted_place = {
+                        "fsq_id": place.get("fsq_place_id", ""),
                         "name": place.get("name", "Unknown"),
-                        "fsq_place_id": place.get("fsq_place_id", ""),
                         "distance": place.get("distance", "N/A"),
                         "rating": place.get("rating", "N/A"),
                         "price": place.get("price", "N/A"),
-                        "address": place.get("location", {}).get("formatted_address", "Address not available"),
-                        "categories": [cat.get("name", "") for cat in place.get("categories", [])]
-                    })
+                        "location": {
+                            "address": place.get("location", {}).get("formatted_address", "Address not available"),
+                            "latitude": place.get("location", {}).get("latitude"),
+                            "longitude": place.get("location", {}).get("longitude"),
+                            "country": place.get("location", {}).get("country", ""),
+                            "locality": place.get("location", {}).get("locality", ""),
+                            "region": place.get("location", {}).get("region", "")
+                        },
+                        "categories": categories,
+                        "chains": place.get("chains", []),
+                        "geocodes": {
+                            "main": {
+                                "latitude": place.get("location", {}).get("latitude"),
+                                "longitude": place.get("location", {}).get("longitude")
+                            }
+                        },
+                        "link": place.get("link", ""),
+                        "popularity": place.get("popularity", 0),
+                        "related_places": place.get("related_places", {}),
+                        "tel": place.get("tel", ""),
+                        "timezone": place.get("timezone", ""),
+                        "website": place.get("website", "")
+                    }
+                    formatted_results.append(formatted_place)
 
-                return json.dumps({
-                    "status": "success",
-                    "count": len(formatted_results),
-                    "places": formatted_results
-                }, indent=2)
+                return json.dumps(formatted_results, indent=2, ensure_ascii=False)
 
             return json.dumps({"status": "no_results", "message": "No places found matching your criteria"})
 

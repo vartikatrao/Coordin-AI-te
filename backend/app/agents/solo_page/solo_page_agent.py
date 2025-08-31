@@ -73,7 +73,8 @@ class SoloPageAgent:
             to get the best results.""",
             verbose=True,
             allow_delegation=False, 
-            llm = llm
+            llm = llm,
+            tools=[self.foursquare_tool]
         )
         
         # Recommendation Agent
@@ -136,15 +137,21 @@ class SoloPageAgent:
         search_task = Task(
             description="""
             Search for places using Foursquare API based on the extracted intent and resolved location:
-            - Use the search query from intent analysis
+            - Use the search query from intent analysis  
             - Apply location coordinates from location resolution
             - Set appropriate filters based on user preferences
             - Retrieve place details for top results
             
-            Use the Foursquare tool to find relevant places.
+            IMPORTANT: Use the Foursquare Places Search tool to find relevant places.
+            Call the tool with action="search", query="gym sports facilities", and ll="12.9716,77.5946" parameters.
+            Return ONLY the exact JSON response from the tool with no modifications.
+            
+            CRITICAL: If you generate any JSON yourself, ensure ALL numeric IDs are quoted as strings.
+            For example: "id": "4bf58dd8d48988d175941735" (NOT "id": 4bf58dd8d48988d175941735).
+            Any unquoted numeric values will cause JSON parsing errors.
             """,
             agent=self.search_agent,
-            expected_output="List of relevant places with details from Foursquare API",
+            expected_output="JSON array of places from Foursquare tool with properly formatted data",
             context=[intent_task, location_task]
         )
         
@@ -198,24 +205,53 @@ class SoloPageAgent:
                     try:
                         places_data = json.loads(search_task_result)
                     except json.JSONDecodeError:
-                        # If it's not JSON, it might be markdown-wrapped JSON
-                        # Extract JSON from between ```json and ```
-                        import re
-                        json_match = re.search(r'```json\s*(.*?)\s*```', search_task_result, re.DOTALL)
-                        if json_match:
-                            places_data = json.loads(json_match.group(1))
-                        else:
-                            raise ValueError("Could not extract JSON from result")
+                        # Try fixing unquoted IDs first, then parse
+                        try:
+                            import re
+                            fixed_result = re.sub(r'"id":\s*([0-9a-fA-F]+)', r'"id": "\1"', search_task_result)
+                            places_data = json.loads(fixed_result)
+                        except json.JSONDecodeError:
+                            # If it's not JSON, it might be markdown-wrapped JSON
+                            # Extract JSON from between ```json and ```
+                            import re
+                            json_match = re.search(r'```json\s*(.*?)\s*```', search_task_result, re.DOTALL)
+                            if json_match:
+                                try:
+                                    # Fix common JSON formatting issues before parsing
+                                    json_text = json_match.group(1)
+                                    # Fix unquoted numeric IDs in category objects (global replacement)
+                                    json_text = re.sub(r'"id":\s*([0-9a-fA-F]+)', r'"id": "\1"', json_text)
+                                    places_data = json.loads(json_text)
+                                except json.JSONDecodeError as e:
+                                    raise ValueError(f"Could not parse JSON from markdown: {str(e)}")
+                            else:
+                                raise ValueError("Could not extract JSON from result")
                     
-                    # Extract just the places array if it's wrapped in a root object
-                    if isinstance(places_data, dict) and 'places' in places_data:
-                        places_data = places_data['places']
+                    # Handle different response structures
+                    if isinstance(places_data, list):
+                        # Direct array of places
+                        final_places = places_data
+                    elif isinstance(places_data, dict):
+                        if 'places' in places_data:
+                            # Object with places key
+                            final_places = places_data['places']
+                        elif 'results' in places_data:
+                            # Direct Foursquare API response
+                            final_places = places_data['results']
+                        elif places_data.get('status') == 'no_results':
+                            # No results case
+                            final_places = []
+                        else:
+                            # Single place object or unknown structure
+                            final_places = [places_data] if places_data else []
+                    else:
+                        final_places = []
                     
                     return {
                         "status": "success",
                         "query": user_query,
                         "timestamp": datetime.now().isoformat(),
-                        "places": places_data
+                        "places": final_places
                     }
                 else:
                     raise ValueError("No search task result found")

@@ -70,10 +70,12 @@ class SoloModeAgent:
             backstory="""You are an expert at finding places using the Foursquare API. You know 
             how to craft optimal search queries, apply appropriate filters, and retrieve detailed 
             information about venues. You understand how to balance different search parameters 
-            to get the best results.""",
+            to get the best results. CRITICAL: When generating JSON, always quote numeric IDs 
+            as strings to ensure valid JSON format.""",
             verbose=True,
             allow_delegation=False, 
-            llm = llm
+            llm = llm,
+            tools=[self.foursquare_tool]
         )
         
         # Recommendation Agent
@@ -141,10 +143,15 @@ class SoloModeAgent:
             - Set appropriate filters based on user preferences
             - Retrieve place details for top results
             
-            Use the Foursquare tool to find relevant places.
+            IMPORTANT: Use the Foursquare Places Search tool to find relevant places.
+            Return ONLY the exact JSON response from the tool with no modifications.
+            
+            CRITICAL: If you generate any JSON yourself, ensure ALL numeric IDs are quoted as strings.
+            For example: "id": "4bf58dd8d48988d175941735" (NOT "id": 4bf58dd8d48988d175941735).
+            Any unquoted numeric values will cause JSON parsing errors.
             """,
             agent=self.search_agent,
-            expected_output="List of relevant places with details from Foursquare API",
+            expected_output="JSON array of places from Foursquare tool with properly formatted data",
             context=[intent_task, location_task]
         )
         
@@ -196,7 +203,14 @@ class SoloModeAgent:
             # Parse the final result
             try:
                 if isinstance(result, str):
-                    parsed_result = json.loads(result)
+                    try:
+                        parsed_result = json.loads(result)
+                    except json.JSONDecodeError:
+                        # Fix common JSON formatting issues before parsing
+                        import re
+                        # Fix unquoted numeric IDs in category objects (global replacement)
+                        fixed_result = re.sub(r'"id":\s*([0-9a-fA-F]+)', r'"id": "\1"', result)
+                        parsed_result = json.loads(fixed_result)
                 else:
                     parsed_result = result
                     
