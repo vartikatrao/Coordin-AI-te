@@ -40,6 +40,22 @@ An AI-powered location coordination platform that solves the everyday challenge 
 - **Learning Algorithm**: Continuously improves recommendations based on user behavior
 - **Real-time Coordination**: Seamless group chat and decision-making tools
 
+## 🚀 Quick Setup
+
+### Option 1: Automated Setup
+```bash
+git clone https://github.com/vartikatrao/Coordin-AI-te.git
+cd Coordin-AI-te
+./quick-setup.sh
+```
+
+### Option 2: Manual Setup
+See [SETUP.md](SETUP.md) for detailed instructions.
+
+### Required API Keys
+- **Foursquare API**: Get from https://developer.foursquare.com/
+- **Google Gemini AI**: Get from https://ai.google.dev/
+
 ## 🛠️ Technology Stack
 
 ### Backend
@@ -75,10 +91,6 @@ cd frontend
 npm install
 npm run dev
 ```
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our contributing guidelines for more information.
 
 ## 📄 License
 

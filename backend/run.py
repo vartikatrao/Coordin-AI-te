@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 
 # Import all routers
-from app.routers import ai_assistant, personalization, safety, location_search
+from app.routers import personalization, safety, location_search
 from app.api.routes import router as solo_router
 from app.api.solo_page.solo_page_routes import router as solo_page_router
 from app.api.group_routes import router as group_router
@@ -38,7 +38,7 @@ app.add_middleware(
 app.include_router(solo_router, prefix="/api/v1", tags=["solo-mode"])
 app.include_router(solo_page_router, prefix="/api/v1/solo-page", tags=["solo-page"])
 app.include_router(group_router, prefix="/api/v1/group", tags=["group-mode"])
-app.include_router(ai_assistant.router, prefix="/api/ai", tags=["ai-assistant"])
+# AI assistant router removed - not being used
 app.include_router(personalization.router, prefix="/api/personalization", tags=["personalization"])
 app.include_router(safety.router, prefix="/api/safety", tags=["safety"])
 app.include_router(location_search.router, prefix="/api/location", tags=["location-search"])
@@ -68,11 +68,7 @@ async def root():
                 "health": "/api/v1/group/health",
                 "test": "/api/v1/group/test"
             },
-            "ai_assistant": {
-                "group_meetup": "/api/ai/group-meetup",
-                "solo_recommendations": "/api/ai/solo-recommendations",
-                "proactive_alert": "/api/ai/proactive-alert"
-            },
+
             "other_services": {
                 "personalization": "/api/personalization",
                 "safety": "/api/safety",
@@ -91,7 +87,6 @@ async def health_check():
             "solo_mode": "available",
             "solo_page": "available",
             "group_mode": "available",
-            "ai_assistant": "available",
             "personalization": "available",
             "safety": "available",
             "location_search": "available"
@@ -131,7 +126,7 @@ if __name__ == "__main__":
     print("  • Solo Mode: /api/v1/solo/*")
     print("  • Solo Page: /api/v1/solo-page/*")
     print("  • Group Mode: /api/v1/group/*")
-    print("  • AI Assistant: /api/ai/*")
+
     print("  • Personalization: /api/personalization/*")
     print("  • Safety: /api/safety/*")
     print("  • Location Search: /api/location/*")
