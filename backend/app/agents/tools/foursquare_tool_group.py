@@ -39,8 +39,12 @@ class FoursquareGroupTool(BaseTool):
         # --- use search_query if provided ---
         query = intent.get("search_query") or "restaurant, cafe"
 
-        url = "https://api.foursquare.com/v3/places/search"
-        headers = {"Authorization": f"Bearer {os.getenv('FSQ_API_KEY')}"}
+        url = "https://places-api.foursquare.com/places/search"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('FSQ_API_KEY')}",
+            "accept": "application/json",
+            "X-Places-Api-Version": "2025-06-17"
+        }
         params = {
             "ll": f"{fair_lat},{fair_lng}",
             "query": query,
@@ -59,12 +63,26 @@ class FoursquareGroupTool(BaseTool):
             print(f"🚦 Response Status: {r.status_code}")
             print(f"📄 Response: {r.text[:200]}...")
             
+            # Check for API credit issues
+            if r.status_code == 429:
+                response_data = r.json() if r.text else {}
+                error_msg = response_data.get("message", "Rate limit exceeded")
+                if "credits" in error_msg.lower():
+                    return json.dumps({
+                        "status": "error",
+                        "error": "API_CREDITS_EXHAUSTED",
+                        "message": "Foursquare API credits exhausted. Please add credits or get a new API key.",
+                        "details": error_msg,
+                        "fair_coords": {"lat": fair_lat, "lng": fair_lng},
+                        "venues": []
+                    })
+            
             r.raise_for_status()
             venues = r.json().get("results", [])
             if not venues:
                 raise ValueError("No venues found at fair coords")
-        except Exception as e:
-            print(f"[Group FSQ] Fair coord search failed: {e}, falling back near first member")
+        except requests.exceptions.RequestException as e:
+            print(f"[Group FSQ] API request failed: {e}, falling back near first member")
 
             # fallback: retry search near first member's coords
             fallback_lat, fallback_lng = fair_lat, fair_lng

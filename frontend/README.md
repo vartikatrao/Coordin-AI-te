@@ -1,204 +1,230 @@
-# Coordin-AI-te
-
-**Coordinate better. Meet faster. Travel safer.**
-
-## Description
-
-Coordin-AI-te is an AI-powered location coordination and recommendation platform that helps users discover places and coordinate meetups intelligently. The application features advanced AI agents, personalized recommendations, and smart group coordination capabilities to enhance your location-based experiences.
-
-## Tech Stack
-
-**Frontend:**
-- Next.js (React framework)
-- Chakra UI (Component library and styling)
-- Redux Toolkit (State management)
-- Firebase (Authentication and real-time database)
-- React Google Maps API (Location services)
-- React Icons & React Markdown
-
-**Backend:**
-- FastAPI (Python web framework)
-- CrewAI (Multi-agent AI framework)
-- Google Generative AI (Gemini models)
-- Foursquare API (Place data and recommendations)
-- Firebase Admin SDK (Authentication)
-- ChromaDB (Vector database for embeddings)
-- OpenAI & LiteLLM (AI model integration)
-
-## Features
-
-### 🤖 AI-Powered Modes
-
-**Solo Mode - Personal AI Concierge**
-- Hyperlocal smart assistant for individual recommendations
-- Mood-based location suggestions (happy, tired, productive, etc.)
-- Routine-based recommendations (morning coffee, workout, lunch)
-- Context-aware suggestions based on time, weather, and location
-- Advanced filtering (budget, atmosphere, features, radius)
-- Real-time personalized place discovery
-
-**Group Mode - Smart Meetup Coordination**
-- Equidistant meetup finder for optimal group locations
-- AI-powered group preferences analysis
-- Real-time group chat with polls and voting
-- Friend discovery and invitation system
-- Collaborative decision-making tools
-
-### 🔐 Authentication & Security
-- Firebase Authentication with multiple methods:
-  - Google OAuth
-  - Email/Password
-  - Phone OTP verification
-- Secure user sessions and data protection
-
-### 🎯 Smart Features
-
-**Location Intelligence:**
-- Real-time location detection and search
-- Foursquare-powered place database
-- Distance-based recommendations
-- Safety route suggestions
-
-**Personalization:**
-- AI learns from user behavior and preferences
-- Customizable daily routines
-- Mood tracking and adaptation
-- Context-aware proactive suggestions
-
-**Group Coordination:**
-- Real-time messaging and polls
-- Optimal meeting point calculations
-- Group preference analysis
-- Collaborative filtering and voting
-
-### 📱 User Experience
-- Modern, responsive UI with Chakra UI
-- Real-time updates and notifications
-- Comprehensive error handling with toast notifications
-- Progressive web app capabilities
-- Mobile-optimized interface
-
-## Installation & Setup
+# Coordin-AI-te Frontend Setup
 
 ### Prerequisites
-- Node.js (v16+)
-- Python (v3.8+)
-- Firebase project
-- Foursquare API key
-- Google AI API key
+- Node.js (v18+)
+- npm or yarn
+- Firebase account (Google Cloud Platform account recommended)
+- Git
 
-### Frontend Setup
+### 🔥 Firebase Setup
 
-1. Clone the repository:
+#### Step 1: Create Firebase Project
+
+1. **Go to Firebase Console**: Visit [https://console.firebase.google.com/](https://console.firebase.google.com/)
+
+2. **Create New Project**:
+   - Click "Add project"
+   - Enter project name (e.g., "coordin-ai-te")
+   - Enable/disable Google Analytics (recommended to enable)
+   - Accept terms and create project
+
+3. **Enable Required Services**:
+
+   **Authentication:**
+   - Go to "Authentication" > "Sign-in method"
+   - Enable the following providers:
+     - **Google**: Click "Google" > Enable > Add your support email
+     - **Email/Password**: Click "Email/Password" > Enable both options
+     - **Phone**: Click "Phone" > Enable
+
+   **Firestore Database:**
+   - Go to "Firestore Database"
+   - Click "Create database"
+   - Choose "Start in test mode" (for development)
+   - Select a location (choose closest to your users)
+
+   **Storage (Optional but recommended):**
+   - Go to "Storage"
+   - Click "Get started"
+   - Accept default security rules
+   - Choose same location as Firestore
+
+#### Step 2: Get Firebase Configuration
+
+1. **Web App Setup**:
+   - In Firebase Console, click the gear icon ⚙️ > "Project settings"
+   - Scroll down to "Your apps"
+   - Click "Add app" > Web icon (</>) 
+   - Enter app nickname: "Coordin-AI-te Frontend"
+   - Check "Also set up Firebase Hosting" (optional)
+   - Click "Register app"
+
+2. **Copy Configuration**:
+   ```javascript
+   // You'll get something like this - SAVE THESE VALUES!
+   const firebaseConfig = {
+     apiKey: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+     authDomain: "your-project.firebaseapp.com",
+     projectId: "your-project-id",
+     storageBucket: "your-project.appspot.com",
+     messagingSenderId: "123456789012",
+     appId: "1:123456789012:web:abcdef123456789",
+     measurementId: "G-XXXXXXXXXX"
+   };
+   ```
+
+#### Step 3: Security Rules Setup
+
+**Firestore Rules** (Go to "Firestore Database" > "Rules"):
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Group data access
+    match /groups/{groupId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Places and public data
+    match /places/{document=**} {
+      allow read: if request.auth != null;
+    }
+  }
+}
+```
+
+**Storage Rules** (Go to "Storage" > "Rules"):
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+### 🚀 Frontend Setup
+
+#### Step 1: Clone and Install
+
 ```bash
+# Clone the repository
 git clone https://github.com/your-username/Coordin-AI-te.git
 cd Coordin-AI-te/frontend
-```
 
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
+# or
+yarn install
 ```
 
-3. Configure environment variables:
+#### Step 2: Environment Configuration
+
+1. **Create Environment File**:
 ```bash
-# Create .env.local file with your Firebase config
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-# ... other Firebase config
+# Create .env.local in the frontend root directory
+touch .env.local
 ```
 
-4. Run the development server:
+2. **Add Firebase Configuration**:
+```bash
+# .env.local
+# Firebase Configuration (from Step 2 above)
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789012
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789012:web:abcdef123456789
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+
+# Backend API Configuration
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_API_V1_URL=http://localhost:8000/api/v1
+
+# Google Maps (optional - for enhanced location features)
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+
+# App Configuration
+NEXT_PUBLIC_APP_NAME=Coordin-AI-te
+NEXT_PUBLIC_APP_VERSION=1.0.0
+```
+
+#### Step 3: Verify Firebase Connection
+
+1. **Test Firebase Setup**:
 ```bash
 npm run dev
 ```
 
-### Backend Setup
+2. **Check Browser Console**:
+   - Open browser to `http://localhost:3000`
+   - Open Developer Tools (F12)
+   - Check Console tab for Firebase initialization messages:
+     - ✅ "Firebase app initialized successfully"
+     - ✅ "Firebase services initialized successfully"
+     - ✅ "Testing Firestore connectivity..."
 
-1. Navigate to backend directory:
+#### Step 4: Development Commands
+
 ```bash
-cd backend
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+
+# Run linting
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+
+# Type checking (if using TypeScript)
+npm run type-check
 ```
 
-2. Create virtual environment:
+### 🔧 Common Setup Issues & Solutions
+
+#### Firebase Authentication Issues
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Error: "Firebase: Error (auth/configuration-not-found)"
+# Solution: Ensure all environment variables are set correctly in .env.local
 ```
 
-3. Install dependencies:
+#### CORS Issues
 ```bash
-pip install -r requirements.txt
+# Error: CORS policy blocking requests
+# Solution: Add your domain to Firebase authorized domains:
+# Firebase Console > Authentication > Settings > Authorized domains
+# Add: localhost, your-domain.com
 ```
 
-4. Configure environment variables:
+#### Environment Variables Not Loading
 ```bash
-# Copy env.example to .env and fill in your API keys
-cp env.example .env
-# Edit .env with your:
-# - FOURSQUARE_API_KEY
-# - GOOGLE_AI_API_KEY
-# - FIREBASE credentials
+# Issue: Environment variables showing as undefined
+# Solution: 
+# 1. Ensure .env.local is in the frontend root directory
+# 2. All variables start with NEXT_PUBLIC_
+# 3. Restart the development server after changes
 ```
 
-5. Run the backend server:
+#### Firestore Permission Denied
 ```bash
-uvicorn main:app --reload
+# Error: "Missing or insufficient permissions"
+# Solution: Check Firestore rules and ensure user is authenticated
 ```
 
-## API Endpoints
+### 📱 Mobile Development Setup
 
-### Solo Mode API (`/api/v1/solo/`)
-- `POST /query` - Process natural language queries for place recommendations
-- `POST /place-details` - Get detailed information about specific places
-- `GET /examples` - Get example queries
-- `GET /supported-intents` - Get supported intent categories
+```bash
+# For mobile testing, use your local IP instead of localhost
+# Find your IP address:
+ip addr show | grep "inet " | grep -v 127.0.0.1
 
-### Group Mode API (`/api/v1/group/`)
-- `POST /coordinate` - Find optimal meeting locations for groups
-- `POST /quick-coordinate` - Quick group coordination
-- `POST /analyze-preferences` - Analyze group preferences
+# Update .env.local with your IP:
+NEXT_PUBLIC_API_BASE_URL=http://YOUR_IP_ADDRESS:8000
 
-### AI Assistant API (`/api/ai/`)
-- `POST /solo-recommendations` - Get AI-powered solo recommendations
-- `POST /group-meetup` - Generate group meetup suggestions
-- `POST /proactive-alert` - Context-aware proactive alerts
-
-## Project Structure
-
+# Then access via mobile browser:
+http://YOUR_IP_ADDRESS:3000
 ```
-Coordin-AI-te/
-├── frontend/           # Next.js React application
-│   ├── components/     # Reusable UI components
-│   ├── pages/         # Next.js pages and API routes
-│   ├── redux/         # State management
-│   └── services/      # API service functions
-├── backend/           # FastAPI Python application
-│   ├── app/
-│   │   ├── agents/    # AI agents (Solo, Group)
-│   │   ├── api/       # API route handlers
-│   │   ├── core/      # Configuration and utilities
-│   │   └── routers/   # FastAPI routers
-│   └── requirements.txt
-└── README.md
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- CrewAI for the multi-agent framework
-- Foursquare for location data
-- Google AI for intelligent recommendations
-- Firebase for real-time capabilities

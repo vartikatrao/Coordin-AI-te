@@ -38,6 +38,7 @@ import {
   SunIcon, 
   SettingsIcon, 
   AddIcon,
+  DeleteIcon,
 } from '@chakra-ui/icons';
 import { useSelector } from 'react-redux';
 import PollComponent from './PollComponent';
@@ -51,7 +52,8 @@ import {
   orderBy, 
   serverTimestamp,
   deleteDoc,
-  setDoc
+  setDoc,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '@/firebase/firebase.config';
 
@@ -78,7 +80,14 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
     onClose: onLeaveClose 
   } = useDisclosure();
   
+  const { 
+    isOpen: isClearOpen, 
+    onOpen: onClearOpen, 
+    onClose: onClearClose 
+  } = useDisclosure();
+  
   const cancelRef = useRef();
+  const clearCancelRef = useRef();
 
   // Safety check for group prop
   if (!group || !group.members) {
@@ -299,6 +308,54 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
     }
   };
 
+  const handleClearChat = async () => {
+    try {
+      // Get all messages from the chat
+      const messagesRef = collection(db, 'groups', group.id, 'messages');
+      const snapshot = await getDocs(messagesRef);
+      
+      // Delete all messages in batch
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      // Add system message indicating chat was cleared
+      await addDoc(collection(db, 'groups', group.id, 'messages'), {
+        userId: 'system',
+        userName: 'System',
+        userAvatar: '',
+        message: `${user.displayName} cleared the chat`,
+        timestamp: serverTimestamp(),
+        isSystemMessage: true,
+      });
+
+      // Update group's last message
+      const groupRef = doc(db, 'groups', group.id);
+      await updateDoc(groupRef, {
+        lastMessage: `Chat cleared by ${user.displayName}`,
+        lastMessageTime: serverTimestamp(),
+      });
+
+      toast({
+        title: 'Chat cleared',
+        description: 'All messages have been removed from this group chat',
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      onClearClose();
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      toast({
+        title: 'Error clearing chat',
+        description: error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   // Listen for typing indicators
   useEffect(() => {
     const typingCollectionRef = collection(db, 'groups', group.id, 'typing');
@@ -390,6 +447,9 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
                 </MenuItem>
                 <MenuItem icon={<SettingsIcon />} onClick={handleOpenSettings}>
                   Group Settings
+                </MenuItem>
+                <MenuItem icon={<DeleteIcon />} onClick={onClearOpen}>
+                  Clear Chat
                 </MenuItem>
                 <MenuItem color="red.500" onClick={onLeaveOpen}>
                   Leave Group
@@ -682,6 +742,47 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
                 ml={3}
               >
                 Leave Group
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* Clear Chat Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isClearOpen}
+        leastDestructiveRef={clearCancelRef}
+        onClose={onClearClose}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Clear Chat
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              <VStack spacing={4} align="center">
+                <DeleteIcon boxSize={12} color="orange.500" />
+                <Text textAlign="center">
+                  Are you sure you want to clear all messages in <strong>"{group.name}"</strong>?
+                </Text>
+                <Text fontSize="sm" color="gray.600" textAlign="center">
+                  This action cannot be undone. All messages, including polls and system messages, will be permanently deleted for all group members.
+                </Text>
+              </VStack>
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={clearCancelRef} onClick={onClearClose}>
+                Cancel
+              </Button>
+              <Button 
+                colorScheme="orange" 
+                onClick={handleClearChat} 
+                ml={3}
+              >
+                Clear Chat
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -218,11 +218,10 @@ async def test_group_coordination():
                 "message": "Group coordination agent not initialized"
             }
         
-        # Test the coordination
-        results = group_agent.coordinate_group_meetup(
+        # Test the coordination  
+        results = await group_agent.coordinate_group_meetup(
             members=test_members,
-            meeting_purpose="casual lunch",
-            quick_mode=True
+            meeting_purpose="casual lunch"
         )
         
         return {

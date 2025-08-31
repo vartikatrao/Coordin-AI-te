@@ -163,15 +163,20 @@ const GroupMode = () => {
         );
 
         // Store AI recommendations in the group
+        const recommendationText = aiData.results?.recommendation || 
+                                 aiData.results?.summary || 
+                                 aiData.results?.raw ||
+                                 'AI-powered location recommendations generated';
+        
         await updateDoc(docRef, {
-          aiRecommendations: aiData.meetup_plan,
-          lastMessage: `AI Recommendation: ${aiData.meetup_plan.substring(0, 100)}...`,
+          aiRecommendations: aiData.results,
+          lastMessage: `AI Recommendation: ${recommendationText.substring(0, 100)}...`,
           lastMessageTime: serverTimestamp(),
         });
         
         // Update local state with AI recommendations
-        groupWithId.aiRecommendations = aiData.meetup_plan;
-        groupWithId.lastMessage = `AI Recommendation: ${aiData.meetup_plan.substring(0, 100)}...`;
+        groupWithId.aiRecommendations = aiData.results;
+        groupWithId.lastMessage = `AI Recommendation: ${recommendationText.substring(0, 100)}...`;
       } catch (aiError) {
         console.warn('AI recommendations failed, continuing with group creation:', aiError);
       }

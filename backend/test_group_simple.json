@@ -1,0 +1,39 @@
+{
+  "members": [
+    {
+      "name": "Alice",
+      "age": 25,
+      "gender": "female",
+      "location": {
+        "lat": 12.9716,
+        "lng": 77.5946,
+        "address": "MG Road, Bangalore"
+      },
+      "preferences": {
+        "meetingType": "coffee",
+        "atmosphere": "casual"
+      },
+      "constraints": {
+        "budget": "moderate"
+      }
+    },
+    {
+      "name": "Bob", 
+      "age": 28,
+      "gender": "male",
+      "location": {
+        "lat": 12.9352,
+        "lng": 77.6245,
+        "address": "Koramangala, Bangalore"
+      },
+      "preferences": {
+        "meetingType": "coffee",
+        "atmosphere": "casual"
+      },
+      "constraints": {
+        "budget": "moderate"
+      }
+    }
+  ],
+  "meeting_purpose": "casual coffee meetup"
+}

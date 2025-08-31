@@ -1,114 +1,414 @@
-# Coordin-AI-te Backend
+# Coordin-AI-te Backend Setup
 
-This FastAPI backend extends your existing Zomato clone frontend with AI-powered features for Coordin-AI-te.
+## Prerequisites
+- Python 3.8+ (recommended: Python 3.11+)
+- pip or pipenv
+- Virtual environment (recommended)
+- Firebase service account key
+- Required API keys (see Environment Variables section)
 
-## What This Backend Does
+## 🚀 Setup Instructions
 
-**It extends your existing functionality, it doesn't replace it:**
-
-- ✅ **Keeps your Firebase auth** - no changes needed
-- ✅ **Keeps your existing frontend** - all screens and features intact
-- ✅ **Keeps your existing location search** - extends it with AI
-- ✅ **Keeps your existing profile system** - adds personalization
-
-## New AI Features Added
-
-### 1. Solo Mode - Hyperlocal Smart Assistant
-- **Endpoint**: `POST /api/ai/solo-recommendations`
-- **What it does**: Enhances your existing venue search with AI-powered personalization
-- **Example**: "It's 4PM, your usual café is full. Try the quieter one 3 mins away?"
-
-### 2. Group Mode - Equidistant Meetup Finder
-- **Endpoint**: `POST /api/ai/group-meetup`
-- **What it does**: Finds optimal meeting points for groups using your existing venue data
-- **Example**: "Found the perfect spot - 18 mins from each of you, matches your vibe!"
-
-### 3. Personalization & Learning
-- **Endpoint**: `POST /api/personalization/learn-preferences`
-- **What it does**: Learns from user behavior to improve recommendations
-- **Example**: Analyzes search patterns, clicks, and preferences
-
-### 4. Safety Features
-- **Endpoint**: `POST /api/safety/safe-route`
-- **What it does**: Creates safe route recommendations using your location data
-- **Example**: "Your usual route home has 3 closed shops tonight. Taking Oak Street instead."
-
-## How to Use
-
-### 1. Install Dependencies
+### Step 1: Clone and Navigate
 ```bash
-cd backend
+git clone https://github.com/your-username/Coordin-AI-te.git
+cd Coordin-AI-te/backend
+```
+
+### Step 2: Create Virtual Environment
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Linux/Mac:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+```
+
+### Step 3: Install Dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Set Environment Variables
+### Step 4: Environment Configuration
+
+1. **Create Environment File**:
 ```bash
 cp env.example .env
-# Edit .env with your API keys
 ```
 
-### 3. Run the Backend
+2. **Configure Environment Variables**:
 ```bash
-uvicorn main:app --reload
+# .env file configuration
+
+# Firebase Configuration
+FIREBASE_CREDENTIALS=path/to/your/firebase-service-key.json
+FIREBASE_WEB_API_KEY=your_firebase_web_api_key
+
+# AI API Keys
+GEMINI_API_KEY=your_google_gemini_api_key
+GEMINI_MODEL=gemini-2.0-flash-exp
+
+# Foursquare API (for location data)
+FSQ_API_KEY=your_foursquare_api_key
+
+# Default Location (Bangalore coordinates as example)
+DEFAULT_LAT=12.9716
+DEFAULT_LNG=77.5946
+
+# Debug Configuration
+CONFIRM_BEFORE_SEARCH=true
+DEBUG_AGENT_LOGS=true
+
+# App Configuration
+APP_NAME=Coordin-AI-te Backend
+APP_ENV=development
 ```
 
-### 4. Integrate with Frontend
-The backend runs on `http://localhost:8000` and your frontend can call these endpoints to enhance the existing functionality.
+### Step 5: Firebase Service Account Setup
 
-## API Endpoints
+1. **Get Firebase Service Account**:
+   - Go to Firebase Console → Project Settings → Service Accounts
+   - Click "Generate new private key"
+   - Download the JSON file
+   - Place it in your backend directory
+   - Update `FIREBASE_CREDENTIALS` in `.env` with the file path
 
-### AI Assistant (`/api/ai`)
-- `POST /solo-recommendations` - Enhanced solo recommendations
-- `POST /group-meetup` - Group meetup optimization
-- `POST /proactive-alert` - Context-aware alerts
+2. **Get Firebase Web API Key**:
+   - Go to Firebase Console → Project Settings → General
+   - Copy the "Web API Key"
+   - Add it to `FIREBASE_WEB_API_KEY` in `.env`
 
-### Personalization (`/api/personalization`)
-- `POST /learn-preferences` - Learn from user behavior
-- `POST /routine-analysis` - Analyze user routines
-- `POST /contextual-suggestions` - Context-aware suggestions
-- `GET /user-insights/{user_id}` - AI-generated insights
+### Step 6: API Keys Setup
 
-### Safety (`/api/safety`)
-- `POST /safe-route` - Safe route finding
-- `POST /area-safety` - Area safety assessment
-- `POST /safety-alerts` - Proactive safety alerts
-- `POST /emergency-coordination` - Emergency contact coordination
-- `GET /safety-tips` - General safety tips
+**Google Gemini API**:
+1. Go to [Google AI Studio](https://aistudio.google.com/)
+2. Create an API key
+3. Add to `GEMINI_API_KEY` in `.env`
 
-## Integration with Existing Frontend
+**Foursquare API**:
+1. Go to [Foursquare Developer Portal](https://developer.foursquare.com/)
+2. Create an app and get API key
+3. Add to `FSQ_API_KEY` in `.env`
 
-This backend is designed to work alongside your existing frontend:
+### Step 7: Run the Application
 
-1. **Keep all existing Firebase auth** - no changes needed
-2. **Keep all existing components** - just add new API calls
-3. **Enhance existing search** - add AI recommendations
-4. **Extend existing profile** - add personalization features
-5. **Add safety features** - enhance location services
+```bash
+# Development server with auto-reload
+python run.py
 
-## Example Frontend Integration
-
-```javascript
-// In your existing frontend, add calls to the backend
-const getAIRecommendations = async (userPreferences, location) => {
-  const response = await fetch('http://localhost:8000/api/ai/solo-recommendations', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      preferences: userPreferences,
-      current_location: location,
-      time_of_day: 'afternoon'
-    })
-  });
-  return response.json();
-};
+# Alternative: Using uvicorn directly
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## What You Get
+### Step 8: Verify Setup
 
-- **AI-powered recommendations** that learn from user behavior
-- **Group coordination** features for meetups
-- **Safety features** for route planning
-- **Personalization** that improves over time
-- **All existing functionality** preserved and enhanced
+1. **Check Health Endpoint**:
+```bash
+curl http://localhost:8000/health
+```
 
-This backend makes your app smarter without changing what already works!
+2. **Expected Response**:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-XX T XX:XX:XX",
+  "version": "1.0.0"
+}
+```
+
+3. **Check API Documentation**:
+   - Visit: `http://localhost:8000/docs`
+   - Interactive Swagger UI with all endpoints
+
+## 📋 API Endpoints Documentation
+
+### 🤖 AI Assistant (`/api/ai/`)
+
+#### `POST /api/ai/solo-recommendations`
+**Description**: Get AI-powered personalized location recommendations for individual users
+
+**Request Body**:
+```json
+{
+  "user_preferences": {
+    "mood": "relaxed",
+    "budget": "moderate",
+    "cuisine": ["indian", "italian"]
+  },
+  "current_location": {
+    "latitude": 12.9716,
+    "longitude": 77.5946
+  },
+  "context": {
+    "time_of_day": "afternoon",
+    "purpose": "casual dining"
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "recommendations": [
+    {
+      "place_id": "abc123",
+      "name": "Cozy Corner Cafe",
+      "confidence_score": 0.92,
+      "reasoning": "Perfect for your relaxed mood...",
+      "distance": "0.5km"
+    }
+  ],
+  "status": "success"
+}
+```
+
+#### `POST /api/ai/group-meetup`
+**Description**: Find optimal meeting locations for groups
+
+**Request Body**:
+```json
+{
+  "group_members": [
+    {
+      "user_id": "user1",
+      "location": {"latitude": 12.9716, "longitude": 77.5946},
+      "preferences": ["quiet", "good-wifi"]
+    }
+  ],
+  "meetup_preferences": {
+    "purpose": "work meeting",
+    "duration": "2 hours"
+  }
+}
+```
+
+#### `POST /api/ai/proactive-alert`
+**Description**: Get context-aware proactive location alerts
+
+---
+
+### 👤 Solo Mode (`/api/v1/solo/`)
+
+#### `POST /api/v1/solo/query`
+**Description**: Process natural language queries for place recommendations
+
+**Request Body**:
+```json
+{
+  "query": "I want a quiet coffee shop near me",
+  "user_id": "user123",
+  "location": {
+    "latitude": 12.9716,
+    "longitude": 77.5946
+  }
+}
+```
+
+#### `POST /api/v1/solo/place-details`
+**Description**: Get detailed information about specific places
+
+#### `GET /api/v1/solo/examples`
+**Description**: Get example queries for the solo mode
+
+#### `GET /api/v1/solo/supported-intents`
+**Description**: Get list of supported query intents
+
+#### `POST /api/v1/solo/generate-title`
+**Description**: Generate conversation titles based on user queries
+
+---
+
+### 👥 Group Mode (`/api/v1/group/`)
+
+#### `POST /api/v1/group/coordinate`
+**Description**: Find optimal meeting locations for groups with advanced coordination
+
+**Request Body**:
+```json
+{
+  "group_data": {
+    "members": [
+      {
+        "user_id": "user1",
+        "location": {"lat": 12.9716, "lng": 77.5946},
+        "preferences": ["budget-friendly", "outdoor-seating"]
+      }
+    ],
+    "meetup_type": "casual dining",
+    "time_preference": "evening"
+  }
+}
+```
+
+#### `GET /api/v1/group/health`
+**Description**: Health check for group coordination services
+
+#### `POST /api/v1/group/test`
+**Description**: Test endpoint for group coordination functionality
+
+---
+
+### 🔧 Personalization (`/api/personalization/`)
+
+#### `POST /api/personalization/learn-preferences`
+**Description**: Learn and update user preferences from behavior
+
+**Request Body**:
+```json
+{
+  "user_id": "user123",
+  "interaction_data": {
+    "clicked_places": ["place1", "place2"],
+    "search_queries": ["coffee near me"],
+    "time_spent": {"place1": 300}
+  }
+}
+```
+
+#### `POST /api/personalization/routine-analysis`
+**Description**: Analyze user routines and patterns
+
+#### `POST /api/personalization/contextual-suggestions`
+**Description**: Get context-aware personalized suggestions
+
+#### `GET /api/personalization/user-insights/{user_id}`
+**Description**: Get AI-generated insights about user preferences
+
+---
+
+### 🛡️ Safety (`/api/safety/`)
+
+#### `POST /api/safety/safe-route`
+**Description**: Get safe route recommendations
+
+**Request Body**:
+```json
+{
+  "start_location": {"latitude": 12.9716, "longitude": 77.5946},
+  "end_location": {"latitude": 12.9750, "longitude": 77.6000},
+  "time_of_travel": "night",
+  "user_preferences": {
+    "avoid_areas": ["area1"],
+    "prefer_well_lit": true
+  }
+}
+```
+
+#### `POST /api/safety/area-safety`
+**Description**: Assess safety levels of specific areas
+
+#### `POST /api/safety/safety-alerts`
+**Description**: Get proactive safety alerts
+
+#### `POST /api/safety/emergency-coordination`
+**Description**: Emergency contact coordination
+
+#### `GET /api/safety/safety-tips`
+**Description**: Get general safety tips and guidelines
+
+---
+
+### 📍 Location Search (`/api/location/`)
+
+#### `GET /api/location/search`
+**Description**: Search for locations with various filters
+
+**Query Parameters**:
+- `query`: Search term
+- `latitude`: Current latitude
+- `longitude`: Current longitude
+- `radius`: Search radius in meters
+- `category`: Place category filter
+
+#### `GET /api/location/popular-locations`
+**Description**: Get popular locations in an area
+
+#### `GET /api/location/nearby`
+**Description**: Get nearby places based on current location
+
+---
+
+### 🔐 Authentication (`/api/auth/`)
+
+#### `GET /api/auth/me`
+**Description**: Get current authenticated user information
+
+---
+
+### 📄 Solo Page (`/api/v1/solo-page/`)
+
+#### `POST /api/v1/solo-page/preferences`
+**Description**: Handle user preferences for solo page
+
+#### `POST /api/v1/solo-page/generate-title`
+**Description**: Generate titles for solo page conversations
+
+#### `GET /api/v1/solo-page/examples`
+**Description**: Get examples for solo page functionality
+
+---
+
+### 🏥 Health & Utility
+
+#### `GET /health`
+**Description**: Application health check
+
+#### `GET /test`
+**Description**: General test endpoint
+
+#### `GET /`
+**Description**: Root endpoint with API information
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Import Error for Firebase**:
+```bash
+# Make sure firebase-admin is installed
+pip install firebase-admin
+```
+
+2. **Environment Variables Not Loading**:
+```bash
+# Ensure .env file is in backend root directory
+# Check file permissions
+ls -la .env
+```
+
+3. **API Key Issues**:
+```bash
+# Test individual API keys
+curl -H "Authorization: Bearer YOUR_API_KEY" https://api.service.com/test
+```
+
+4. **Port Already in Use**:
+```bash
+# Find process using port 8000
+lsof -i :8000
+# Kill the process
+kill -9 PID
+```
+
+### Development Tips
+
+1. **Enable Debug Logging**:
+```bash
+# In .env file
+DEBUG_AGENT_LOGS=true
+```
+
+2. **Test API Endpoints**:
+```bash
+# Use curl or Postman
+curl -X POST http://localhost:8000/health
+```
+
+3. **Monitor Logs**:
+```bash
+# Run with verbose logging
+python run.py --log-level debug
+```
