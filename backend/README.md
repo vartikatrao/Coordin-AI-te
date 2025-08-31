@@ -100,7 +100,7 @@ APP_ENV=development
 python run.py
 
 # Alternative: Using uvicorn directly
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn run:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Step 8: Verify Setup
