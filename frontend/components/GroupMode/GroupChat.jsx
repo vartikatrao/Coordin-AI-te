@@ -312,18 +312,25 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
     try {
       // Get all messages from the chat
       const messagesRef = collection(db, 'groups', group.id, 'messages');
-      const snapshot = await getDocs(messagesRef);
+      const messagesSnapshot = await getDocs(messagesRef);
       
-      // Delete all messages in batch
-      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      // Get all polls from the group
+      const pollsRef = collection(db, 'groups', group.id, 'polls');
+      const pollsSnapshot = await getDocs(pollsRef);
+      
+      // Delete all messages and polls in batch
+      const deletePromises = [
+        ...messagesSnapshot.docs.map(doc => deleteDoc(doc.ref)),
+        ...pollsSnapshot.docs.map(doc => deleteDoc(doc.ref))
+      ];
       await Promise.all(deletePromises);
 
-      // Add system message indicating chat was cleared
+      // Add system message indicating chat and polls were cleared
       await addDoc(collection(db, 'groups', group.id, 'messages'), {
         userId: 'system',
         userName: 'System',
         userAvatar: '',
-        message: `${user.displayName} cleared the chat`,
+        message: `${user.displayName} cleared the chat and polls`,
         timestamp: serverTimestamp(),
         isSystemMessage: true,
       });
@@ -331,13 +338,13 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
       // Update group's last message
       const groupRef = doc(db, 'groups', group.id);
       await updateDoc(groupRef, {
-        lastMessage: `Chat cleared by ${user.displayName}`,
+        lastMessage: `Chat and polls cleared by ${user.displayName}`,
         lastMessageTime: serverTimestamp(),
       });
 
       toast({
-        title: 'Chat cleared',
-        description: 'All messages have been removed from this group chat',
+        title: 'Chat and polls cleared',
+        description: 'All messages and polls have been removed from this group',
         status: 'info',
         duration: 3000,
         isClosable: true,
@@ -345,7 +352,7 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
 
       onClearClose();
     } catch (error) {
-      console.error('Error clearing chat:', error);
+      console.error('Error clearing chat and polls:', error);
       toast({
         title: 'Error clearing chat',
         description: error.message,
@@ -449,7 +456,7 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
                   Group Settings
                 </MenuItem>
                 <MenuItem icon={<DeleteIcon />} onClick={onClearOpen}>
-                  Clear Chat
+                  Clear Chat & Polls
                 </MenuItem>
                 <MenuItem color="red.500" onClick={onLeaveOpen}>
                   Leave Group
@@ -758,17 +765,17 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
         <AlertDialogOverlay>
           <AlertDialogContent>
             <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Clear Chat
+              Clear Chat & Polls
             </AlertDialogHeader>
 
             <AlertDialogBody>
               <VStack spacing={4} align="center">
                 <DeleteIcon boxSize={12} color="orange.500" />
                 <Text textAlign="center">
-                  Are you sure you want to clear all messages in <strong>"{group.name}"</strong>?
+                  Are you sure you want to clear all messages and polls in <strong>"{group.name}"</strong>?
                 </Text>
                 <Text fontSize="sm" color="gray.600" textAlign="center">
-                  This action cannot be undone. All messages, including polls and system messages, will be permanently deleted for all group members.
+                  This action cannot be undone. All messages, polls, and system messages will be permanently deleted for all group members.
                 </Text>
               </VStack>
             </AlertDialogBody>
@@ -782,7 +789,7 @@ const GroupChat = ({ group, onMessageSent, onGroupUpdate, onLeaveGroup }) => {
                 onClick={handleClearChat} 
                 ml={3}
               >
-                Clear Chat
+                Clear Chat & Polls
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
