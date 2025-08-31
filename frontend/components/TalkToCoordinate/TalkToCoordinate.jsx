@@ -182,7 +182,7 @@ const TalkToCoordinate = () => {
   // Function to generate conversation title using Gemini AI
   const generateConversationTitle = async (message) => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/solo/generate-title', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/solo/generate-title`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -413,7 +413,7 @@ const TalkToCoordinate = () => {
       // Call your backend AI service directly
       console.log('Calling backend AI service with query:', userQuery);
       
-      const response = await fetch('http://localhost:8000/api/v1/solo/query', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/solo/query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
