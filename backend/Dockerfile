@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     sqlite3 \
     libsqlite3-dev \
+    vim \
     && rm -rf /var/lib/apt/lists/*
-
+    
 # Copy requirements first (better caching)
 COPY requirements.txt .
 
