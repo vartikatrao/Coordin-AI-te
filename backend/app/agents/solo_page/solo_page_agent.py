@@ -225,7 +225,12 @@ class SoloPageAgent:
                                 except json.JSONDecodeError as e:
                                     raise ValueError(f"Could not parse JSON from markdown: {str(e)}")
                             else:
-                                raise ValueError("Could not extract JSON from result")
+                                # Handle non-JSON responses (like API failures)
+                                if "failed" in search_task_result.lower() or "unable" in search_task_result.lower():
+                                    # This is likely an API failure, return empty results
+                                    places_data = []
+                                else:
+                                    raise ValueError("Could not extract JSON from result")
                     
                     # Handle different response structures
                     if isinstance(places_data, list):
